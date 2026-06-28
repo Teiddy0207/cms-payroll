@@ -153,3 +153,22 @@ func (r *PayrollRepository) HasActiveContract(ctx context.Context, employeeID uu
 	}
 	return count > 0, nil
 }
+
+func (r *PayrollRepository) GetActiveContractByEmployeeID(ctx context.Context, employeeID uuid.UUID) (*entity.Contract, error) {
+	var contract entity.Contract
+	query := `
+		SELECT id, employee_id, contract_code, position_base_rate, start_date, end_date, status, created_at, updated_at
+		FROM contracts
+		WHERE employee_id = $1 AND status = 'ACTIVE'
+		LIMIT 1
+	`
+	err := r.DB.GetContext(ctx, &contract, query, employeeID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		logger.Error("PayrollRepository:GetActiveContractByEmployeeID:Error %v", err)
+		return nil, err
+	}
+	return &contract, nil
+}

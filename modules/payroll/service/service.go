@@ -60,4 +60,22 @@ type PayrollServiceInterface interface {
 	GetEvaluationByID(ctx context.Context, id uuid.UUID) (*dto.EvaluationResponse, *errors.AppError)
 	UpdateEvaluation(ctx context.Context, id uuid.UUID, req *dto.CompetencyScoreInput) *errors.AppError
 	DeleteEvaluation(ctx context.Context, id uuid.UUID) *errors.AppError
+
+	// Job Position Standards
+	AssignStandardToPosition(ctx context.Context, positionID uuid.UUID, req *dto.AssignStandardRequest) *errors.AppError
+	GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]dto.JobPositionStandardResponse, *errors.AppError)
+	RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) *errors.AppError
+
+	// Job Position Competencies
+	AssignCompetencyToPosition(ctx context.Context, positionID uuid.UUID, req *dto.AssignCompetencyRequest) *errors.AppError
+	GetCompetenciesByPosition(ctx context.Context, positionID uuid.UUID) ([]dto.JobPositionCompetencyResponse, *errors.AppError)
+	RemoveCompetencyFromPosition(ctx context.Context, positionID uuid.UUID, competencyID uuid.UUID) *errors.AppError
+
+	// System Settings
+	GetSystemSetting(ctx context.Context, key string) (*dto.SystemSettingResponse, *errors.AppError)
+	UpdateSystemSetting(ctx context.Context, key string, req *dto.UpdateSystemSettingRequest) *errors.AppError
+	GetAllSystemSettings(ctx context.Context) ([]dto.SystemSettingResponse, *errors.AppError)
+
+	// Calculator
+	PreviewSalary(ctx context.Context, employeeID uuid.UUID, period string) (*dto.SalaryPreviewResponse, *errors.AppError)
 }

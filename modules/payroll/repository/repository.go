@@ -46,6 +46,7 @@ type PayrollRepositoryInterface interface {
 	UpdateContract(ctx context.Context, id uuid.UUID, contract *entity.Contract) error
 	DeleteContract(ctx context.Context, id uuid.UUID) error
 	HasActiveContract(ctx context.Context, employeeID uuid.UUID, excludeContractID *uuid.UUID) (bool, error)
+	GetActiveContractByEmployeeID(ctx context.Context, employeeID uuid.UUID) (*entity.Contract, error)
 
 	// Job Standards
 	CreateJobStandard(ctx context.Context, standard *entity.JobStandard) (*entity.JobStandard, error)
@@ -64,4 +65,19 @@ type PayrollRepositoryInterface interface {
 	GetManagedDepartmentID(ctx context.Context, managerID uuid.UUID) (uuid.UUID, error)
 	GetEmployeeDepartmentID(ctx context.Context, employeeID uuid.UUID) (uuid.UUID, error)
 	IsAdminOrDirector(ctx context.Context, userID uuid.UUID) (bool, error)
+
+	// Job Position Standards
+	AssignStandardToPosition(ctx context.Context, jps *entity.JobPositionStandard) error
+	GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]entity.JobPositionStandardDetail, error)
+	RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) error
+
+	// Job Position Competencies
+	AssignCompetencyToPosition(ctx context.Context, jpc *entity.JobPositionCompetency) error
+	GetCompetenciesByPosition(ctx context.Context, positionID uuid.UUID) ([]entity.JobPositionCompetencyDetail, error)
+	RemoveCompetencyFromPosition(ctx context.Context, positionID uuid.UUID, competencyID uuid.UUID) error
+
+	// System Settings
+	GetSystemSetting(ctx context.Context, key string) (*entity.SystemSetting, error)
+	SetSystemSetting(ctx context.Context, setting *entity.SystemSetting) error
+	GetAllSystemSettings(ctx context.Context) ([]entity.SystemSetting, error)
 }

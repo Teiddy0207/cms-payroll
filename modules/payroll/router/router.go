@@ -42,6 +42,12 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	payrollRoutes.GET("/job-positions/:id", r.PayrollController.GetJobPositionByID)
 	payrollRoutes.PUT("/job-positions/:id", r.PayrollController.UpdateJobPosition)
 	payrollRoutes.DELETE("/job-positions/:id", r.PayrollController.DeleteJobPosition)
+	payrollRoutes.POST("/job-positions/:id/competencies", r.PayrollController.AssignCompetencyToPosition)
+	payrollRoutes.GET("/job-positions/:id/competencies", r.PayrollController.GetCompetenciesByPosition)
+	payrollRoutes.DELETE("/job-positions/:id/competencies/:competency_id", r.PayrollController.RemoveCompetencyFromPosition)
+	payrollRoutes.POST("/job-positions/:id/standards", r.PayrollController.AssignStandardToPosition)
+	payrollRoutes.GET("/job-positions/:id/standards", r.PayrollController.GetStandardsByPosition)
+	payrollRoutes.DELETE("/job-positions/:id/standards/:standard_id", r.PayrollController.RemoveStandardFromPosition)
 
 	// User Profiles endpoints
 	payrollRoutes.POST("/user-profiles", r.PayrollController.CreateUserProfile)
@@ -70,4 +76,12 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	payrollRoutes.GET("/evaluations/:id", r.PayrollController.GetEvaluationByID)
 	payrollRoutes.PUT("/evaluations/:id", r.PayrollController.UpdateEvaluation)
 	payrollRoutes.DELETE("/evaluations/:id", r.PayrollController.DeleteEvaluation)
+
+	// System Settings endpoints
+	payrollRoutes.GET("/settings", r.PayrollController.GetAllSystemSettings)
+	payrollRoutes.GET("/settings/:key", r.PayrollController.GetSystemSetting)
+	payrollRoutes.PUT("/settings/:key", r.PayrollController.UpdateSystemSetting)
+
+	// Calculator Engine endpoints
+	payrollRoutes.GET("/calculator/preview/:employee_id", r.PayrollController.PreviewSalary)
 }
