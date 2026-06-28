@@ -1,0 +1,73 @@
+package router
+
+import (
+	"cal-salary/core/middleware"
+	activitylog "cal-salary/modules/activity_log/service"
+	"cal-salary/modules/payroll/controller"
+
+	"github.com/labstack/echo/v4"
+)
+
+type PayrollRouter struct {
+	PayrollController *controller.PayrollController
+}
+
+func NewPayrollRouter(payrollController *controller.PayrollController) *PayrollRouter {
+	return &PayrollRouter{
+		PayrollController: payrollController,
+	}
+}
+
+func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middleware, activityLogSvc activitylog.ActivityLogServiceInterface) {
+	v1 := e.Group("/api/v1")
+	privateRoutes := v1.Group("/private")
+
+	// Apply AuthMiddleware to all private routes in payroll
+	privateRoutes.Use(middlewareInstance.AuthMiddleware())
+
+	// Apply ActivityLogMiddleware
+	payrollRoutes := privateRoutes.Group("/payroll")
+	payrollRoutes.Use(middlewareInstance.ActivityLogMiddleware(activityLogSvc, "payroll"))
+
+	// Departments endpoints
+	payrollRoutes.POST("/departments", r.PayrollController.CreateDepartment)
+	payrollRoutes.GET("/departments", r.PayrollController.GetDepartments)
+	payrollRoutes.GET("/departments/:id", r.PayrollController.GetDepartmentByID)
+	payrollRoutes.PUT("/departments/:id", r.PayrollController.UpdateDepartment)
+	payrollRoutes.DELETE("/departments/:id", r.PayrollController.DeleteDepartment)
+
+	// Job Positions endpoints
+	payrollRoutes.POST("/job-positions", r.PayrollController.CreateJobPosition)
+	payrollRoutes.GET("/job-positions", r.PayrollController.GetJobPositions)
+	payrollRoutes.GET("/job-positions/:id", r.PayrollController.GetJobPositionByID)
+	payrollRoutes.PUT("/job-positions/:id", r.PayrollController.UpdateJobPosition)
+	payrollRoutes.DELETE("/job-positions/:id", r.PayrollController.DeleteJobPosition)
+
+	// User Profiles endpoints
+	payrollRoutes.POST("/user-profiles", r.PayrollController.CreateUserProfile)
+	payrollRoutes.GET("/user-profiles", r.PayrollController.GetUserProfiles)
+	payrollRoutes.GET("/user-profiles/:id", r.PayrollController.GetUserProfileByID)
+	payrollRoutes.PUT("/user-profiles/:id", r.PayrollController.UpdateUserProfile)
+	payrollRoutes.DELETE("/user-profiles/:id", r.PayrollController.DeleteUserProfile)
+
+	// Contracts endpoints
+	payrollRoutes.POST("/contracts", r.PayrollController.CreateContract)
+	payrollRoutes.GET("/contracts", r.PayrollController.GetContracts)
+	payrollRoutes.GET("/contracts/:id", r.PayrollController.GetContractByID)
+	payrollRoutes.PUT("/contracts/:id", r.PayrollController.UpdateContract)
+	payrollRoutes.DELETE("/contracts/:id", r.PayrollController.DeleteContract)
+
+	// Job Standards endpoints
+	payrollRoutes.POST("/job-standards", r.PayrollController.CreateJobStandard)
+	payrollRoutes.GET("/job-standards", r.PayrollController.GetJobStandards)
+	payrollRoutes.GET("/job-standards/:id", r.PayrollController.GetJobStandardByID)
+	payrollRoutes.PUT("/job-standards/:id", r.PayrollController.UpdateJobStandard)
+	payrollRoutes.DELETE("/job-standards/:id", r.PayrollController.DeleteJobStandard)
+
+	// Competency Evaluations endpoints
+	payrollRoutes.POST("/evaluations", r.PayrollController.CreateBatchEvaluations)
+	payrollRoutes.GET("/evaluations", r.PayrollController.GetEvaluations)
+	payrollRoutes.GET("/evaluations/:id", r.PayrollController.GetEvaluationByID)
+	payrollRoutes.PUT("/evaluations/:id", r.PayrollController.UpdateEvaluation)
+	payrollRoutes.DELETE("/evaluations/:id", r.PayrollController.DeleteEvaluation)
+}

@@ -1,0 +1,63 @@
+package service
+
+import (
+	"cal-salary/core/errors"
+	"cal-salary/core/params"
+	"cal-salary/modules/payroll/dto"
+	"cal-salary/modules/payroll/repository"
+	"context"
+
+	"github.com/google/uuid"
+)
+
+type PayrollService struct {
+	repo repository.PayrollRepositoryInterface
+}
+
+func NewPayrollService(repo repository.PayrollRepositoryInterface) *PayrollService {
+	return &PayrollService{repo: repo}
+}
+
+type PayrollServiceInterface interface {
+	// Departments
+	CreateDepartment(ctx context.Context, req *dto.CreateDepartmentRequest) (*dto.DepartmentResponse, *errors.AppError)
+	GetDepartments(ctx context.Context, params params.QueryParams) (*dto.PaginatedDepartmentDTO, *errors.AppError)
+	GetDepartmentByID(ctx context.Context, id uuid.UUID) (*dto.DepartmentResponse, *errors.AppError)
+	UpdateDepartment(ctx context.Context, id uuid.UUID, req *dto.UpdateDepartmentRequest) *errors.AppError
+	DeleteDepartment(ctx context.Context, id uuid.UUID) *errors.AppError
+
+	// Job Positions
+	CreateJobPosition(ctx context.Context, req *dto.CreateJobPositionRequest) (*dto.JobPositionResponse, *errors.AppError)
+	GetJobPositions(ctx context.Context, params params.QueryParams) (*dto.PaginatedJobPositionDTO, *errors.AppError)
+	GetJobPositionByID(ctx context.Context, id uuid.UUID) (*dto.JobPositionResponse, *errors.AppError)
+	UpdateJobPosition(ctx context.Context, id uuid.UUID, req *dto.UpdateJobPositionRequest) *errors.AppError
+	DeleteJobPosition(ctx context.Context, id uuid.UUID) *errors.AppError
+
+	// User Profiles
+	CreateUserProfile(ctx context.Context, req *dto.CreateUserProfileRequest) (*dto.UserProfileResponse, *errors.AppError)
+	GetUserProfiles(ctx context.Context, params params.QueryParams) (*dto.PaginatedUserProfileDTO, *errors.AppError)
+	GetUserProfileByID(ctx context.Context, id uuid.UUID) (*dto.UserProfileResponse, *errors.AppError)
+	UpdateUserProfile(ctx context.Context, id uuid.UUID, req *dto.UpdateUserProfileRequest) *errors.AppError
+	DeleteUserProfile(ctx context.Context, id uuid.UUID) *errors.AppError
+
+	// Contracts
+	CreateContract(ctx context.Context, req *dto.CreateContractRequest) (*dto.ContractResponse, *errors.AppError)
+	GetContracts(ctx context.Context, params params.QueryParams) (*dto.PaginatedContractDTO, *errors.AppError)
+	GetContractByID(ctx context.Context, id uuid.UUID) (*dto.ContractResponse, *errors.AppError)
+	UpdateContract(ctx context.Context, id uuid.UUID, req *dto.UpdateContractRequest) *errors.AppError
+	DeleteContract(ctx context.Context, id uuid.UUID) *errors.AppError
+
+	// Job Standards
+	CreateJobStandard(ctx context.Context, req *dto.CreateJobStandardRequest) (*dto.JobStandardResponse, *errors.AppError)
+	GetJobStandards(ctx context.Context, params params.QueryParams) (*dto.PaginatedJobStandardDTO, *errors.AppError)
+	GetJobStandardByID(ctx context.Context, id uuid.UUID) (*dto.JobStandardResponse, *errors.AppError)
+	UpdateJobStandard(ctx context.Context, id uuid.UUID, req *dto.UpdateJobStandardRequest) *errors.AppError
+	DeleteJobStandard(ctx context.Context, id uuid.UUID) *errors.AppError
+
+	// Competency Evaluations
+	CreateBatchEvaluations(ctx context.Context, evaluatorID uuid.UUID, req *dto.BatchEvaluationRequest) ([]dto.EvaluationResponse, *errors.AppError)
+	GetEvaluations(ctx context.Context, params params.QueryParams) (*dto.PaginatedEvaluationDTO, *errors.AppError)
+	GetEvaluationByID(ctx context.Context, id uuid.UUID) (*dto.EvaluationResponse, *errors.AppError)
+	UpdateEvaluation(ctx context.Context, id uuid.UUID, req *dto.CompetencyScoreInput) *errors.AppError
+	DeleteEvaluation(ctx context.Context, id uuid.UUID) *errors.AppError
+}

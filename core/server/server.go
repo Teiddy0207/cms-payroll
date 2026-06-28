@@ -1,0 +1,245 @@
+package server
+
+import (
+	"cal-salary/core/cache"
+	"cal-salary/core/config"
+	"cal-salary/core/database"
+	inmemcache "cal-salary/core/inmem_cache"
+	"cal-salary/core/logger"
+	"cal-salary/core/middleware"
+	"cal-salary/core/seed"
+	coreStorage "cal-salary/core/storage"
+	"cal-salary/core/utils"
+	"cal-salary/modules/activity_log"
+	"cal-salary/modules/auth"
+	"cal-salary/modules/payroll"
+	"context"
+	"flag"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/labstack/echo/v4"
+)
+
+type Server struct {
+	echo  *echo.Echo
+	addr  string
+	cache *cache.Cache
+	db    database.Database
+}
+
+func initEnvironment() (config.Environment, error) {
+	env := flag.String("env", "dev", "Environment (dev/prod)")
+	flag.Parse()
+
+	switch *env {
+	case "dev":
+		return config.DevEnvironment, nil
+	case "prod":
+		return config.ProdEnvironment, nil
+	default:
+		return "", fmt.Errorf("invalid environment. Use 'dev' or 'prod'")
+	}
+}
+
+func initServer() (*Server, error) {
+	environment, err := initEnvironment()
+	if err != nil {
+		return nil, err
+	}
+
+	if errInitConfig := config.Init(environment); errInitConfig != nil {
+		return nil, fmt.Errorf("failed to initialize config: %w", errInitConfig)
+	}
+
+	// Get config safely
+	cfg, isInitialized := config.GetSafe()
+	if !isInitialized {
+		return nil, fmt.Errorf("config was not properly initialized")
+	}
+
+	// Initialize logger first, before validation
+	if errInitLogger := logger.Init(logger.LogConfig{
+		Level:         logger.LogLevelDebug,
+		EnableFile:    true,
+		JSONFormat:    true, // Thêm dòng này để log dạng JSON
+		DailyRotation: true, // Có thể thêm daily rotation nếu muốn
+	}); errInitLogger != nil {
+		return nil, fmt.Errorf("failed to initialize logger: %w", errInitLogger)
+	}
+
+	// Validate configuration after logger is initialized
+	if err = cfg.Validate(); err != nil {
+		logger.Error("Configuration validation failed", "error", err)
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	// Initialize database
+	db, err := database.InitDB(database.DatabaseConfig{
+		Host:     cfg.Database.Host,
+		Port:     cfg.Database.Port,
+		User:     cfg.Database.User,
+		Password: cfg.Database.Password,
+		DBName:   cfg.Database.DBName,
+	})
+	if err != nil {
+		logger.Error("Failed to initialize database", "error", err)
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
+	// Initialize Redis cache
+	redisCache := cache.NewCache(
+		cfg.Redis.Address,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+	)
+
+	// Initialize in-memory cache
+	inmemCache := inmemcache.NewInMemoryCache()
+	if inmemCache == nil {
+		return nil, fmt.Errorf("failed to initialize in-memory cache")
+	}
+
+	// Initialize Email Config
+	emailConfig := utils.EmailConfig{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+		FromName: cfg.SMTP.FromName,
+	}
+	utils.InitEmailConfig(emailConfig)
+
+	// Initialize MinIO client
+	if err := coreStorage.InitMinIOClient(); err != nil {
+		logger.Warn("Failed to initialize MinIO client", "error", err)
+		// Không dừng server nếu MinIO init thất bại, chỉ log warning
+	}
+
+	// Seed initial data
+	seedCtx := context.Background()
+	if err := seed.SeedWorkStandards(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed work standards", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+	// Seed type competencies trước vì competency dictionaries phụ thuộc vào nó
+	if err := seed.SeedTypeCompetencies(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed type competencies", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+	if err := seed.SeedCompetencyDictionaries(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed competency dictionaries", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+	if err := seed.SeedUserProfiles(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed user profiles", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+	if err := seed.SeedPermissions(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed permissions", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+
+	logger.Info("Server initializing",
+		"environment", environment,
+		"host", cfg.Server.Host,
+		"port", cfg.Server.Port,
+		"database_host", cfg.Database.Host,
+		"database_port", cfg.Database.Port,
+		"database_name", cfg.Database.DBName,
+		"redis_address", cfg.Redis.Address,
+		"redis_db", cfg.Redis.DB,
+		"smtp_host", cfg.SMTP.Host,
+		"smtp_port", cfg.SMTP.Port,
+	)
+
+	e := echo.New()
+
+	_, ipnet1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, ipnet2, _ := net.ParseCIDR("10.0.0.0/8")
+	_, ipnet3, _ := net.ParseCIDR("172.16.0.0/12")
+	_, ipnet4, _ := net.ParseCIDR("192.168.0.0/16")
+
+	// Cấu hình IPExtractor để lấy đúng client IP khi chạy sau Proxy/Load Balancer
+	e.IPExtractor = echo.ExtractIPFromXFFHeader(
+		echo.TrustIPRange(ipnet1),
+		echo.TrustIPRange(ipnet2),
+		echo.TrustIPRange(ipnet3),
+		echo.TrustIPRange(ipnet4),
+	)
+
+	// Middleware
+	e.Use(middleware.LoggerMiddleware())
+	e.Use(middleware.CORSMiddleware())
+
+	e.Use(echo.MiddlewareFunc(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if c.Request().Method == "POST" || c.Request().Method == "PUT" {
+				c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 32<<20) // 32MB
+			}
+			return next(c)
+		}
+	}))
+
+	// Initialize modules
+	authMod := auth.Init(db, *redisCache)
+	middlewareInstance := middleware.NewMiddleware(authMod.Service)
+
+	activityLogSvc := activity_log.Init(e, db, middlewareInstance)
+	authMod.SetupRouter(e, middlewareInstance, activityLogSvc)
+
+	payrollMod := payroll.Init(db)
+	payrollMod.SetupRouter(e, middlewareInstance, activityLogSvc)
+
+	return &Server{
+		echo:  e,
+		addr:  fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
+		cache: redisCache,
+		db:    db,
+	}, nil
+}
+
+func Run() error {
+	srv, err := initServer()
+	if err != nil {
+		// Use fmt.Printf instead of logger since logger might not be initialized
+		fmt.Printf("Failed to initialize server: %v\n", err)
+		return err
+	}
+	return srv.start()
+}
+
+func (s *Server) start() error {
+	logger.Info("Starting HTTP server", "address", s.addr)
+
+	go func() {
+		if err := s.echo.Start(s.addr); err != nil {
+			logger.Info("Shutting down server", "error", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := s.echo.Shutdown(ctx); err != nil {
+		return fmt.Errorf("failed to shutdown server gracefully: %w", err)
+	}
+
+	// Close Redis connection
+	if err := s.cache.Close(); err != nil {
+		logger.Error("Failed to close Redis connection", "error", err)
+	}
+
+	logger.Info("Server shutdown complete")
+	return nil
+}
