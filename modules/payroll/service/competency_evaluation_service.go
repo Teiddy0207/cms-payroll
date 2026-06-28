@@ -12,9 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// ==========================================
-// Competency Evaluations Service
-// ==========================================
+
 
 func (s *PayrollService) CreateBatchEvaluations(ctx context.Context, evaluatorID uuid.UUID, req *dto.BatchEvaluationRequest) ([]dto.EvaluationResponse, *errors.AppError) {
 	// 1. Kiểm tra xem người chấm có phải Admin hoặc Giám đốc không (bỏ qua RLS check)
@@ -24,7 +22,6 @@ func (s *PayrollService) CreateBatchEvaluations(ctx context.Context, evaluatorID
 	}
 
 	if !isAdminOrDirector {
-		// 2. RLS Check cho Trưởng phòng: Chỉ được phép chấm điểm cho nhân viên trực thuộc phòng của mình
 		managedDeptID, err := s.repo.GetManagedDepartmentID(ctx, evaluatorID)
 		if err != nil {
 			return nil, errors.NewAppError(errors.ErrInternalServer, "failed to check managed departments", err)
