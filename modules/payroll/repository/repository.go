@@ -71,10 +71,17 @@ type PayrollRepositoryInterface interface {
 	GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]entity.JobPositionStandardDetail, error)
 	RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) error
 
-	// Job Position Competencies
-	AssignCompetencyToPosition(ctx context.Context, jpc *entity.JobPositionCompetency) error
-	GetCompetenciesByPosition(ctx context.Context, positionID uuid.UUID) ([]entity.JobPositionCompetencyDetail, error)
-	RemoveCompetencyFromPosition(ctx context.Context, positionID uuid.UUID, competencyID uuid.UUID) error
+	// Employee Competencies
+	AssignEmployeeCompetencies(ctx context.Context, userProfileID uuid.UUID, competencyIDs []uuid.UUID) error
+	GetCompetenciesByEmployee(ctx context.Context, userProfileID uuid.UUID) ([]entity.EmployeeCompetencyDetail, error)
+	RemoveEmployeeCompetency(ctx context.Context, userProfileID uuid.UUID, competencyID uuid.UUID) error
+
+	// Competencies (Dictionary)
+	CreateCompetency(ctx context.Context, c *entity.Competency) (*entity.Competency, error)
+	GetCompetencies(ctx context.Context, params params.QueryParams) ([]entity.Competency, int, error)
+	GetCompetencyByID(ctx context.Context, id uuid.UUID) (*entity.Competency, error)
+	UpdateCompetency(ctx context.Context, id uuid.UUID, c *entity.Competency) error
+	DeleteCompetency(ctx context.Context, id uuid.UUID) error
 
 	// System Settings
 	GetSystemSetting(ctx context.Context, key string) (*entity.SystemSetting, error)

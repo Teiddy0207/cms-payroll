@@ -42,7 +42,10 @@ func (r *PayrollRepository) CreateUserProfile(ctx context.Context, profile *enti
 
 func (r *PayrollRepository) GetUserProfiles(ctx context.Context, qp params.QueryParams) ([]entity.UserProfile, int, error) {
 	offset := (qp.PageNumber - 1) * qp.PageSize
-	baseQuery := `FROM user_profiles u`
+	baseQuery := `
+		FROM user_profiles u
+		LEFT JOIN job_descriptions jd ON u.position_id = jd.id
+	`
 	var conditions []string
 	var args []interface{}
 	argIndex := 1
@@ -67,14 +70,28 @@ func (r *PayrollRepository) GetUserProfiles(ctx context.Context, qp params.Query
 	}
 
 	dataQuery := `
-		SELECT u.id, u.user_id, u.code, u.full_name, u.phone, u.avatar, u.date_of_birth, u.gender, u.position_id, u.department_id, u.created_at, u.updated_at
+		SELECT
+			u.id, u.user_id, u.code, u.full_name, u.phone, u.avatar,
+			u.date_of_birth, u.gender, u.position_id, u.department_id,
+			u.created_at, u.updated_at,
+			jd.id AS jp_id, jd.code AS jp_code, jd.name AS jp_name,
+			jd.description AS jp_description, jd.department_id AS jp_department_id
 	` + baseQuery + whereClause + ` ORDER BY u.full_name ASC, u.created_at DESC`
 
 	dataQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
 	args = append(args, qp.PageSize, offset)
 
-	var profiles []entity.UserProfile
-	err = r.DB.SelectContext(ctx, &profiles, dataQuery, args...)
+	type profileRow struct {
+		entity.UserProfile
+		JpID           *uuid.UUID `db:"jp_id"`
+		JpCode         *string    `db:"jp_code"`
+		JpName         *string    `db:"jp_name"`
+		JpDescription  *string    `db:"jp_description"`
+		JpDepartmentID *uuid.UUID `db:"jp_department_id"`
+	}
+
+	var rows []profileRow
+	err = r.DB.SelectContext(ctx, &rows, dataQuery, args...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []entity.UserProfile{}, 0, nil
@@ -83,13 +100,51 @@ func (r *PayrollRepository) GetUserProfiles(ctx context.Context, qp params.Query
 		return nil, 0, err
 	}
 
+	profiles := make([]entity.UserProfile, len(rows))
+	for i, row := range rows {
+		profiles[i] = row.UserProfile
+		if row.JpID != nil {
+			profiles[i].JobPosition = &entity.JobPosition{}
+			profiles[i].JobPosition.ID = *row.JpID
+			if row.JpCode != nil {
+				profiles[i].JobPosition.Code = *row.JpCode
+			}
+			if row.JpName != nil {
+				profiles[i].JobPosition.Name = *row.JpName
+			}
+			profiles[i].JobPosition.Description = row.JpDescription
+			profiles[i].JobPosition.DepartmentID = row.JpDepartmentID
+		}
+	}
+
 	return profiles, totalItems, nil
 }
 
+
 func (r *PayrollRepository) GetUserProfileByID(ctx context.Context, id uuid.UUID) (*entity.UserProfile, error) {
-	var profile entity.UserProfile
-	query := `SELECT * FROM user_profiles WHERE id = $1`
-	err := r.DB.GetContext(ctx, &profile, query, id)
+	query := `
+		SELECT
+			u.id, u.user_id, u.code, u.full_name, u.phone, u.avatar,
+			u.date_of_birth, u.gender, u.position_id, u.department_id,
+			u.created_at, u.updated_at,
+			jd.id AS jp_id, jd.code AS jp_code, jd.name AS jp_name,
+			jd.description AS jp_description, jd.department_id AS jp_department_id
+		FROM user_profiles u
+		LEFT JOIN job_descriptions jd ON u.position_id = jd.id
+		WHERE u.id = $1
+	`
+
+	type profileRow struct {
+		entity.UserProfile
+		JpID           *uuid.UUID `db:"jp_id"`
+		JpCode         *string    `db:"jp_code"`
+		JpName         *string    `db:"jp_name"`
+		JpDescription  *string    `db:"jp_description"`
+		JpDepartmentID *uuid.UUID `db:"jp_department_id"`
+	}
+
+	var row profileRow
+	err := r.DB.GetContext(ctx, &row, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -97,6 +152,21 @@ func (r *PayrollRepository) GetUserProfileByID(ctx context.Context, id uuid.UUID
 		logger.Error("PayrollRepository:GetUserProfileByID - Select", err)
 		return nil, err
 	}
+
+	profile := row.UserProfile
+	if row.JpID != nil {
+		profile.JobPosition = &entity.JobPosition{}
+		profile.JobPosition.ID = *row.JpID
+		if row.JpCode != nil {
+			profile.JobPosition.Code = *row.JpCode
+		}
+		if row.JpName != nil {
+			profile.JobPosition.Name = *row.JpName
+		}
+		profile.JobPosition.Description = row.JpDescription
+		profile.JobPosition.DepartmentID = row.JpDepartmentID
+	}
+
 	return &profile, nil
 }
 

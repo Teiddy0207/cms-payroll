@@ -453,6 +453,7 @@ func (service *AuthService) Register(ctx context.Context, requestData *dto.Regis
 
 	// Create user entity
 	userEntity := &entity.User{
+		Username: &requestData.Phone,
 		Password: hashedPassword,
 	}
 

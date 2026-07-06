@@ -16,6 +16,8 @@ type UserProfile struct {
 	Gender       *string    `db:"gender" json:"gender"`
 	PositionID   *uuid.UUID `db:"position_id" json:"position_id"`
 	DepartmentID *uuid.UUID `db:"department_id" json:"department_id"`
+
+	JobPosition *JobPosition `db:"-" json:"job_position,omitempty"`
 	entity.BaseEntity
 }
 

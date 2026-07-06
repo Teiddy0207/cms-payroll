@@ -13,9 +13,6 @@ type CompetencyScoreBreakdown struct {
 	CompetencyID   uuid.UUID `json:"competency_id"`
 	CompetencyName string    `json:"competency_name"`
 	CompetencyCode string    `json:"competency_code"`
-	AchievedLevel  int       `json:"achieved_level"`
-	RequiredLevel  int       `json:"required_level"`
-	Weight         int       `json:"weight"`
 	PointValue     int       `json:"point_value"`
 	IsAchieved     bool      `json:"is_achieved"`
 	EarnedPoints   int       `json:"earned_points"`

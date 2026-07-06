@@ -3,7 +3,6 @@ package service
 import (
 	"cal-salary/core/errors"
 	"cal-salary/core/logger"
-	"cal-salary/core/params"
 	"cal-salary/modules/payroll/dto"
 	"cal-salary/modules/payroll/entity"
 	"cal-salary/modules/payroll/mapper"
@@ -23,9 +22,7 @@ func (s *PayrollService) AssignStandardToPosition(ctx context.Context, positionI
 		JobDescriptionID: positionID,
 		JobStandardID:    req.JobStandardID,
 	}
-
-	err := s.repo.AssignStandardToPosition(ctx, jps)
-	if err != nil {
+	if err := s.repo.AssignStandardToPosition(ctx, jps); err != nil {
 		logger.Error("PayrollService:AssignStandardToPosition:Error %v", err)
 		return errors.NewAppError(errors.ErrInternalServer, "failed to assign standard to position", err)
 	}
@@ -38,13 +35,11 @@ func (s *PayrollService) GetStandardsByPosition(ctx context.Context, positionID 
 		logger.Error("PayrollService:GetStandardsByPosition:Error %v", err)
 		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch standards by position", err)
 	}
-
 	return mapper.ToJobPositionStandardDTOList(list), nil
 }
 
 func (s *PayrollService) RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) *errors.AppError {
-	err := s.repo.RemoveStandardFromPosition(ctx, positionID, standardID)
-	if err != nil {
+	if err := s.repo.RemoveStandardFromPosition(ctx, positionID, standardID); err != nil {
 		logger.Error("PayrollService:RemoveStandardFromPosition:Error %v", err)
 		return errors.NewAppError(errors.ErrInternalServer, "failed to remove standard from position", err)
 	}
@@ -52,40 +47,30 @@ func (s *PayrollService) RemoveStandardFromPosition(ctx context.Context, positio
 }
 
 // ==========================================
-// Job Position Competencies Service
+// Employee Competencies Service
 // ==========================================
 
-func (s *PayrollService) AssignCompetencyToPosition(ctx context.Context, positionID uuid.UUID, req *dto.AssignCompetencyRequest) *errors.AppError {
-	jpc := &entity.JobPositionCompetency{
-		JobDescriptionID: positionID,
-		CompetencyID:     req.CompetencyID,
-		RequiredLevel:    req.RequiredLevel,
-		Weight:           req.Weight,
-	}
-
-	err := s.repo.AssignCompetencyToPosition(ctx, jpc)
-	if err != nil {
-		logger.Error("PayrollService:AssignCompetencyToPosition:Error %v", err)
-		return errors.NewAppError(errors.ErrInternalServer, "failed to assign competency to position", err)
+func (s *PayrollService) AssignEmployeeCompetencies(ctx context.Context, userProfileID uuid.UUID, req *dto.AssignEmployeeCompetenciesRequest) *errors.AppError {
+	if err := s.repo.AssignEmployeeCompetencies(ctx, userProfileID, req.CompetencyIDs); err != nil {
+		logger.Error("PayrollService:AssignEmployeeCompetencies:Error %v", err)
+		return errors.NewAppError(errors.ErrInternalServer, "failed to assign competencies to employee", err)
 	}
 	return nil
 }
 
-func (s *PayrollService) GetCompetenciesByPosition(ctx context.Context, positionID uuid.UUID) ([]dto.JobPositionCompetencyResponse, *errors.AppError) {
-	list, err := s.repo.GetCompetenciesByPosition(ctx, positionID)
+func (s *PayrollService) GetCompetenciesByEmployee(ctx context.Context, userProfileID uuid.UUID) ([]dto.EmployeeCompetencyResponse, *errors.AppError) {
+	list, err := s.repo.GetCompetenciesByEmployee(ctx, userProfileID)
 	if err != nil {
-		logger.Error("PayrollService:GetCompetenciesByPosition:Error %v", err)
-		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch competencies by position", err)
+		logger.Error("PayrollService:GetCompetenciesByEmployee:Error %v", err)
+		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch competencies by employee", err)
 	}
-
-	return mapper.ToJobPositionCompetencyDTOList(list), nil
+	return mapper.ToEmployeeCompetencyDTOList(list), nil
 }
 
-func (s *PayrollService) RemoveCompetencyFromPosition(ctx context.Context, positionID uuid.UUID, competencyID uuid.UUID) *errors.AppError {
-	err := s.repo.RemoveCompetencyFromPosition(ctx, positionID, competencyID)
-	if err != nil {
-		logger.Error("PayrollService:RemoveCompetencyFromPosition:Error %v", err)
-		return errors.NewAppError(errors.ErrInternalServer, "failed to remove competency from position", err)
+func (s *PayrollService) RemoveEmployeeCompetency(ctx context.Context, userProfileID uuid.UUID, competencyID uuid.UUID) *errors.AppError {
+	if err := s.repo.RemoveEmployeeCompetency(ctx, userProfileID, competencyID); err != nil {
+		logger.Error("PayrollService:RemoveEmployeeCompetency:Error %v", err)
+		return errors.NewAppError(errors.ErrInternalServer, "failed to remove competency from employee", err)
 	}
 	return nil
 }
@@ -103,7 +88,6 @@ func (s *PayrollService) GetSystemSetting(ctx context.Context, key string) (*dto
 	if setting == nil {
 		return nil, errors.NewAppError(errors.ErrNotFound, "system setting not found", nil)
 	}
-
 	return mapper.ToSystemSettingDTO(setting), nil
 }
 
@@ -113,9 +97,7 @@ func (s *PayrollService) UpdateSystemSetting(ctx context.Context, key string, re
 		Value:       req.Value,
 		Description: req.Description,
 	}
-
-	err := s.repo.SetSystemSetting(ctx, setting)
-	if err != nil {
+	if err := s.repo.SetSystemSetting(ctx, setting); err != nil {
 		logger.Error("PayrollService:UpdateSystemSetting:Error %v", err)
 		return errors.NewAppError(errors.ErrInternalServer, "failed to update system setting", err)
 	}
@@ -128,16 +110,13 @@ func (s *PayrollService) GetAllSystemSettings(ctx context.Context) ([]dto.System
 		logger.Error("PayrollService:GetAllSystemSettings:Error %v", err)
 		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch system settings", err)
 	}
-
 	return mapper.ToSystemSettingDTOList(settings), nil
 }
 
-// ==========================================
-// Core Calculator Service
-// ==========================================
+
 
 func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID, period string) (*dto.SalaryPreviewResponse, *errors.AppError) {
-	// 1. Get employee profile
+	// 1. Lấy hồ sơ nhân sự
 	profile, err := s.repo.GetUserProfileByID(ctx, employeeID)
 	if err != nil {
 		logger.Error("PreviewSalary:GetUserProfileByID:Error %v", err)
@@ -146,105 +125,64 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 	if profile == nil {
 		return nil, errors.NewAppError(errors.ErrNotFound, "employee profile not found", nil)
 	}
-
 	if profile.PositionID == nil {
 		return nil, errors.NewAppError(errors.ErrInvalidInput, "employee does not have an assigned job position", nil)
 	}
 
-	// 2. Get dynamically calculated P1 Score (SUM of Job Standards for this Position)
+	// 2. Tính P1 động từ các tiêu chuẩn công việc của vị trí
 	posStds, err := s.repo.GetStandardsByPosition(ctx, *profile.PositionID)
 	if err != nil {
 		logger.Error("PreviewSalary:GetStandardsByPosition:Error %v", err)
 		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch job position standards", err)
 	}
 
-	var p1Score float64 = 0.0
+	var p1Score float64
 	var p1StdsBreakdown []dto.JobStandardBreakdown
 	for _, item := range posStds {
 		p1Score += item.AllowanceValue
 		p1StdsBreakdown = append(p1StdsBreakdown, dto.JobStandardBreakdown{
 			StandardID:     item.JobStandardID,
-			StandardCode:     item.StandardCode,
-			StandardName:     item.StandardName,
+			StandardCode:   item.StandardCode,
+			StandardName:   item.StandardName,
 			AllowanceValue: item.AllowanceValue,
 		})
 	}
 
-	// 3. Get system_rate (company_point_rate)
-	systemRate := 5000.0 // Default rate
-	rateSetting, err := s.repo.GetSystemSetting(ctx, "company_point_rate")
-	if err == nil && rateSetting != nil {
-		parsedRate, errParse := strconv.ParseFloat(rateSetting.Value, 64)
-		if errParse == nil {
-			systemRate = parsedRate
+	// 3. Lấy đơn giá điểm từ system_settings
+	systemRate := 5000.0
+	if rateSetting, err := s.repo.GetSystemSetting(ctx, "company_point_rate"); err == nil && rateSetting != nil {
+		if parsed, err := strconv.ParseFloat(rateSetting.Value, 64); err == nil {
+			systemRate = parsed
 		}
 	}
 
-	// 4. Get required competencies for this job position
-	reqComps, err := s.repo.GetCompetenciesByPosition(ctx, *profile.PositionID)
+	// 4. Tính P2 từ danh sách năng lực đã gán cho nhân sự (employee_competencies)
+	empComps, err := s.repo.GetCompetenciesByEmployee(ctx, employeeID)
 	if err != nil {
-		logger.Error("PreviewSalary:GetCompetenciesByPosition:Error %v", err)
-		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch position competencies", err)
+		logger.Error("PreviewSalary:GetCompetenciesByEmployee:Error %v", err)
+		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch employee competencies", err)
 	}
 
-	// 5. Get actual evaluations for this employee in this period
-	qp := params.QueryParams{
-		PageNumber: 1,
-		PageSize:   1000,
-		Filters: map[string]string{
-			"employee_id":       employeeID.String(),
-			"evaluation_period": period,
-		},
-	}
-	evals, _, err := s.repo.GetEvaluations(ctx, qp)
-	if err != nil {
-		logger.Error("PreviewSalary:GetEvaluations:Error %v", err)
-		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch employee evaluations", err)
-	}
-
-	// Map evaluations by competency_id for faster lookup
-	evalMap := make(map[uuid.UUID]entity.CompetencyEvaluation)
-	for _, ev := range evals {
-		evalMap[ev.CompetencyID] = ev
-	}
-
-	// 6. Calculate P2 Score by points accumulation (Sum up points of competencies where employee meets/exceeds position requirement)
+	var p2Score float64
 	var competencyBreakdowns []dto.CompetencyScoreBreakdown
-	var p2Score float64 = 0.0
-
-	for _, reqComp := range reqComps {
-		achievedLevel := 0
-		if ev, exists := evalMap[reqComp.CompetencyID]; exists {
-			achievedLevel = ev.Score
-		}
-
-		isAchieved := achievedLevel >= reqComp.RequiredLevel
-		earnedPoints := 0
-		if isAchieved {
-			earnedPoints = reqComp.PointValue
-			p2Score += float64(reqComp.PointValue)
-		}
-
+	for _, comp := range empComps {
+		p2Score += float64(comp.PointValue)
 		competencyBreakdowns = append(competencyBreakdowns, dto.CompetencyScoreBreakdown{
-			CompetencyID:   reqComp.CompetencyID,
-			CompetencyName: reqComp.CompetencyName,
-			CompetencyCode: reqComp.CompetencyCode,
-			AchievedLevel:  achievedLevel,
-			RequiredLevel:  reqComp.RequiredLevel,
-			Weight:         reqComp.Weight,
-			PointValue:     reqComp.PointValue,
-			IsAchieved:     isAchieved,
-			EarnedPoints:   earnedPoints,
+			CompetencyID:   comp.CompetencyID,
+			CompetencyName: comp.CompetencyName,
+			CompetencyCode: comp.CompetencyCode,
+			PointValue:     comp.PointValue,
+			IsAchieved:     true,
+			EarnedPoints:   comp.PointValue,
 		})
 	}
 
-	// 7. Compute P1, P2 and Total in currency (VND)
+	// 5. Tính tiền
 	p1Total := p1Score * systemRate
 	p2Total := p2Score * systemRate
 	subtotal := p1Total + p2Total
 
-	// 8. Prepare note
-	note := fmt.Sprintf("Calculated dynamically based on Job Standards (P1) and Accumulated Competency Points (P2) for employee %s.", profile.FullName)
+	note := fmt.Sprintf("P1 từ tiêu chuẩn vị trí, P2 từ năng lực cá nhân nhân viên %s.", profile.FullName)
 
 	return &dto.SalaryPreviewResponse{
 		EmployeeID:     employeeID,

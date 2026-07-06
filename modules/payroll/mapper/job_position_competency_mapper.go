@@ -5,22 +5,20 @@ import (
 	"cal-salary/modules/payroll/entity"
 )
 
-func ToJobPositionCompetencyDTO(item *entity.JobPositionCompetencyDetail) *dto.JobPositionCompetencyResponse {
-	return &dto.JobPositionCompetencyResponse{
-		JobDescriptionID: item.JobDescriptionID,
-		CompetencyID:     item.CompetencyID,
-		CompetencyName:   item.CompetencyName,
-		CompetencyCode:   item.CompetencyCode,
-		RequiredLevel:    item.RequiredLevel,
-		Weight:           item.Weight,
-		PointValue:       item.PointValue,
+func ToEmployeeCompetencyDTO(item *entity.EmployeeCompetencyDetail) *dto.EmployeeCompetencyResponse {
+	return &dto.EmployeeCompetencyResponse{
+		UserProfileID:  item.UserProfileID,
+		CompetencyID:   item.CompetencyID,
+		CompetencyName: item.CompetencyName,
+		CompetencyCode: item.CompetencyCode,
+		PointValue:     item.PointValue,
 	}
 }
 
-func ToJobPositionCompetencyDTOList(list []entity.JobPositionCompetencyDetail) []dto.JobPositionCompetencyResponse {
-	res := make([]dto.JobPositionCompetencyResponse, len(list))
+func ToEmployeeCompetencyDTOList(list []entity.EmployeeCompetencyDetail) []dto.EmployeeCompetencyResponse {
+	res := make([]dto.EmployeeCompetencyResponse, len(list))
 	for i, item := range list {
-		res[i] = *ToJobPositionCompetencyDTO(&item)
+		res[i] = *ToEmployeeCompetencyDTO(&item)
 	}
 	return res
 }

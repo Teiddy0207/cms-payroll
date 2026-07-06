@@ -58,49 +58,50 @@ func (r *PayrollRepository) RemoveStandardFromPosition(ctx context.Context, posi
 }
 
 // ==========================================
-// Job Position Competencies Repository
+// Employee Competencies Repository
 // ==========================================
 
-func (r *PayrollRepository) AssignCompetencyToPosition(ctx context.Context, jpc *entity.JobPositionCompetency) error {
-	query := `
-		INSERT INTO job_position_competencies (job_description_id, competency_id, required_level, weight, created_at)
-		VALUES (:job_description_id, :competency_id, :required_level, :weight, NOW())
-		ON CONFLICT (job_description_id, competency_id) 
-		DO UPDATE SET required_level = EXCLUDED.required_level, weight = EXCLUDED.weight
-	`
-	_, err := r.DB.NamedExecContext(ctx, query, jpc)
-	if err != nil {
-		logger.Error("PayrollRepository:AssignCompetencyToPosition:Error %v", err)
-		return err
+func (r *PayrollRepository) AssignEmployeeCompetencies(ctx context.Context, userProfileID uuid.UUID, competencyIDs []uuid.UUID) error {
+	for _, cid := range competencyIDs {
+		query := `
+			INSERT INTO employee_competencies (user_profile_id, competency_id, created_at)
+			VALUES ($1, $2, NOW())
+			ON CONFLICT (user_profile_id, competency_id) DO NOTHING
+		`
+		_, err := r.DB.SQLx().ExecContext(ctx, query, userProfileID, cid)
+		if err != nil {
+			logger.Error("PayrollRepository:AssignEmployeeCompetencies:Error %v", err)
+			return err
+		}
 	}
 	return nil
 }
 
-func (r *PayrollRepository) GetCompetenciesByPosition(ctx context.Context, positionID uuid.UUID) ([]entity.JobPositionCompetencyDetail, error) {
+func (r *PayrollRepository) GetCompetenciesByEmployee(ctx context.Context, userProfileID uuid.UUID) ([]entity.EmployeeCompetencyDetail, error) {
 	query := `
-		SELECT jpc.job_description_id, jpc.competency_id, cd.name AS competency_name, cd.code AS competency_code, jpc.required_level, jpc.weight, cd.point_value
-		FROM job_position_competencies jpc
-		JOIN competency_dictionaries cd ON jpc.competency_id = cd.id
-		WHERE jpc.job_description_id = $1
+		SELECT ec.user_profile_id, ec.competency_id, cd.name AS competency_name, cd.code AS competency_code, cd.point_value
+		FROM employee_competencies ec
+		JOIN competency_dictionaries cd ON ec.competency_id = cd.id
+		WHERE ec.user_profile_id = $1
 		ORDER BY cd.code ASC
 	`
-	var list []entity.JobPositionCompetencyDetail
-	err := r.DB.SelectContext(ctx, &list, query, positionID)
+	var list []entity.EmployeeCompetencyDetail
+	err := r.DB.SelectContext(ctx, &list, query, userProfileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return []entity.JobPositionCompetencyDetail{}, nil
+			return []entity.EmployeeCompetencyDetail{}, nil
 		}
-		logger.Error("PayrollRepository:GetCompetenciesByPosition:Error %v", err)
+		logger.Error("PayrollRepository:GetCompetenciesByEmployee:Error %v", err)
 		return nil, err
 	}
 	return list, nil
 }
 
-func (r *PayrollRepository) RemoveCompetencyFromPosition(ctx context.Context, positionID uuid.UUID, competencyID uuid.UUID) error {
-	query := `DELETE FROM job_position_competencies WHERE job_description_id = $1 AND competency_id = $2`
-	_, err := r.DB.SQLx().ExecContext(ctx, query, positionID, competencyID)
+func (r *PayrollRepository) RemoveEmployeeCompetency(ctx context.Context, userProfileID uuid.UUID, competencyID uuid.UUID) error {
+	query := `DELETE FROM employee_competencies WHERE user_profile_id = $1 AND competency_id = $2`
+	_, err := r.DB.SQLx().ExecContext(ctx, query, userProfileID, competencyID)
 	if err != nil {
-		logger.Error("PayrollRepository:RemoveCompetencyFromPosition:Error %v", err)
+		logger.Error("PayrollRepository:RemoveEmployeeCompetency:Error %v", err)
 		return err
 	}
 	return nil
