@@ -443,14 +443,14 @@ func (r *AuthRepository) GetUserByIdentifier(ctx context.Context, identifier str
 
 func (r *AuthRepository) CreateUser(ctx context.Context, user *entity.User) (*entity.User, error) {
 	query := `
-		INSERT INTO users (email, phone, username, password)
-		VALUES (:email, :phone, :username, :password)
-		RETURNING *
+		INSERT INTO users (email, username, password)
+		VALUES (:email, :username, :password)
+		RETURNING id, email, username, password, email_verified_at, position_id, is_active, created_at, updated_at
 	`
 	rows, err := r.DB.NamedQueryContext(ctx, query, user)
 	if err != nil {
 		logger.Error("AuthRepository:CreateUser:Error:", err)
-		return nil, nil
+		return nil, err
 	}
 	defer rows.Close()
 

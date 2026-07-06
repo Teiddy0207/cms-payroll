@@ -20,6 +20,11 @@ func ToUserProfileEntity(req *dto.CreateUserProfileRequest) *entity.UserProfile 
 }
 
 func ToUserProfileDTO(profile *entity.UserProfile) *dto.UserProfileResponse {
+	var jobPos *dto.JobPositionResponse
+	if profile.JobPosition != nil {
+		jobPos = ToJobPositionDTO(profile.JobPosition)
+	}
+
 	return &dto.UserProfileResponse{
 		ID:           profile.ID,
 		UserID:       profile.UserID,
@@ -33,6 +38,7 @@ func ToUserProfileDTO(profile *entity.UserProfile) *dto.UserProfileResponse {
 		DepartmentID: profile.DepartmentID,
 		CreatedAt:    profile.CreatedAt,
 		UpdatedAt:    profile.UpdatedAt,
+		JobPosition:  jobPos,
 	}
 }
 

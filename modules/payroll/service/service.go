@@ -54,6 +54,13 @@ type PayrollServiceInterface interface {
 	UpdateJobStandard(ctx context.Context, id uuid.UUID, req *dto.UpdateJobStandardRequest) *errors.AppError
 	DeleteJobStandard(ctx context.Context, id uuid.UUID) *errors.AppError
 
+	// Competencies (Dictionary)
+	CreateCompetency(ctx context.Context, req *dto.CreateCompetencyRequest) (*dto.CompetencyResponse, *errors.AppError)
+	GetCompetencies(ctx context.Context, params params.QueryParams) (*dto.PaginatedCompetencyDTO, *errors.AppError)
+	GetCompetencyByID(ctx context.Context, id uuid.UUID) (*dto.CompetencyResponse, *errors.AppError)
+	UpdateCompetency(ctx context.Context, id uuid.UUID, req *dto.UpdateCompetencyRequest) *errors.AppError
+	DeleteCompetency(ctx context.Context, id uuid.UUID) *errors.AppError
+
 	// Competency Evaluations
 	CreateBatchEvaluations(ctx context.Context, evaluatorID uuid.UUID, req *dto.BatchEvaluationRequest) ([]dto.EvaluationResponse, *errors.AppError)
 	GetEvaluations(ctx context.Context, params params.QueryParams) (*dto.PaginatedEvaluationDTO, *errors.AppError)
@@ -66,10 +73,10 @@ type PayrollServiceInterface interface {
 	GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]dto.JobPositionStandardResponse, *errors.AppError)
 	RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) *errors.AppError
 
-	// Job Position Competencies
-	AssignCompetencyToPosition(ctx context.Context, positionID uuid.UUID, req *dto.AssignCompetencyRequest) *errors.AppError
-	GetCompetenciesByPosition(ctx context.Context, positionID uuid.UUID) ([]dto.JobPositionCompetencyResponse, *errors.AppError)
-	RemoveCompetencyFromPosition(ctx context.Context, positionID uuid.UUID, competencyID uuid.UUID) *errors.AppError
+	// Employee Competencies
+	AssignEmployeeCompetencies(ctx context.Context, userProfileID uuid.UUID, req *dto.AssignEmployeeCompetenciesRequest) *errors.AppError
+	GetCompetenciesByEmployee(ctx context.Context, userProfileID uuid.UUID) ([]dto.EmployeeCompetencyResponse, *errors.AppError)
+	RemoveEmployeeCompetency(ctx context.Context, userProfileID uuid.UUID, competencyID uuid.UUID) *errors.AppError
 
 	// System Settings
 	GetSystemSetting(ctx context.Context, key string) (*dto.SystemSettingResponse, *errors.AppError)

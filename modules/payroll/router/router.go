@@ -42,9 +42,9 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	payrollRoutes.GET("/job-positions/:id", r.PayrollController.GetJobPositionByID)
 	payrollRoutes.PUT("/job-positions/:id", r.PayrollController.UpdateJobPosition)
 	payrollRoutes.DELETE("/job-positions/:id", r.PayrollController.DeleteJobPosition)
-	payrollRoutes.POST("/job-positions/:id/competencies", r.PayrollController.AssignCompetencyToPosition)
-	payrollRoutes.GET("/job-positions/:id/competencies", r.PayrollController.GetCompetenciesByPosition)
-	payrollRoutes.DELETE("/job-positions/:id/competencies/:competency_id", r.PayrollController.RemoveCompetencyFromPosition)
+	payrollRoutes.POST("/user-profiles/:id/competencies", r.PayrollController.AssignEmployeeCompetencies)
+	payrollRoutes.GET("/user-profiles/:id/competencies", r.PayrollController.GetCompetenciesByEmployee)
+	payrollRoutes.DELETE("/user-profiles/:id/competencies/:competency_id", r.PayrollController.RemoveEmployeeCompetency)
 	payrollRoutes.POST("/job-positions/:id/standards", r.PayrollController.AssignStandardToPosition)
 	payrollRoutes.GET("/job-positions/:id/standards", r.PayrollController.GetStandardsByPosition)
 	payrollRoutes.DELETE("/job-positions/:id/standards/:standard_id", r.PayrollController.RemoveStandardFromPosition)
@@ -76,6 +76,13 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	payrollRoutes.GET("/evaluations/:id", r.PayrollController.GetEvaluationByID)
 	payrollRoutes.PUT("/evaluations/:id", r.PayrollController.UpdateEvaluation)
 	payrollRoutes.DELETE("/evaluations/:id", r.PayrollController.DeleteEvaluation)
+
+	// Competency Dictionaries endpoints
+	payrollRoutes.POST("/competencies", r.PayrollController.CreateCompetency)
+	payrollRoutes.GET("/competencies", r.PayrollController.GetCompetencies)
+	payrollRoutes.GET("/competencies/:id", r.PayrollController.GetCompetencyByID)
+	payrollRoutes.PUT("/competencies/:id", r.PayrollController.UpdateCompetency)
+	payrollRoutes.DELETE("/competencies/:id", r.PayrollController.DeleteCompetency)
 
 	// System Settings endpoints
 	payrollRoutes.GET("/settings", r.PayrollController.GetAllSystemSettings)

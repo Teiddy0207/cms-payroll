@@ -63,47 +63,47 @@ func (ctrl *PayrollController) RemoveStandardFromPosition(c echo.Context) error 
 }
 
 // ==========================================
-// Job Position Competencies Handlers
+// Employee Competencies Handlers
 // ==========================================
 
-func (ctrl *PayrollController) AssignCompetencyToPosition(c echo.Context) error {
+func (ctrl *PayrollController) AssignEmployeeCompetencies(c echo.Context) error {
 	ctx := c.Request().Context()
-	positionID, err := uuid.Parse(c.Param("id"))
+	userProfileID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid Position ID format", nil)
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid User Profile ID format", nil)
 	}
 
-	req := new(dto.AssignCompetencyRequest)
+	req := new(dto.AssignEmployeeCompetenciesRequest)
 	if err := c.Bind(req); err != nil {
 		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid request data", nil)
 	}
 
-	appErr := ctrl.Service.AssignCompetencyToPosition(ctx, positionID, req)
+	appErr := ctrl.Service.AssignEmployeeCompetencies(ctx, userProfileID, req)
 	if appErr != nil {
 		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
 	}
-	return ctrl.SuccessResponse(c, nil, "Assign competency to position success")
+	return ctrl.SuccessResponse(c, nil, "Assign competencies to employee success")
 }
 
-func (ctrl *PayrollController) GetCompetenciesByPosition(c echo.Context) error {
+func (ctrl *PayrollController) GetCompetenciesByEmployee(c echo.Context) error {
 	ctx := c.Request().Context()
-	positionID, err := uuid.Parse(c.Param("id"))
+	userProfileID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid Position ID format", nil)
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid User Profile ID format", nil)
 	}
 
-	resp, appErr := ctrl.Service.GetCompetenciesByPosition(ctx, positionID)
+	resp, appErr := ctrl.Service.GetCompetenciesByEmployee(ctx, userProfileID)
 	if appErr != nil {
 		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
 	}
-	return ctrl.SuccessResponse(c, resp, "Fetch competencies by position success")
+	return ctrl.SuccessResponse(c, resp, "Fetch competencies by employee success")
 }
 
-func (ctrl *PayrollController) RemoveCompetencyFromPosition(c echo.Context) error {
+func (ctrl *PayrollController) RemoveEmployeeCompetency(c echo.Context) error {
 	ctx := c.Request().Context()
-	positionID, err := uuid.Parse(c.Param("id"))
+	userProfileID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid Position ID format", nil)
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid User Profile ID format", nil)
 	}
 
 	competencyID, err := uuid.Parse(c.Param("competency_id"))
@@ -111,11 +111,11 @@ func (ctrl *PayrollController) RemoveCompetencyFromPosition(c echo.Context) erro
 		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid Competency ID format", nil)
 	}
 
-	appErr := ctrl.Service.RemoveCompetencyFromPosition(ctx, positionID, competencyID)
+	appErr := ctrl.Service.RemoveEmployeeCompetency(ctx, userProfileID, competencyID)
 	if appErr != nil {
 		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
 	}
-	return ctrl.SuccessResponse(c, nil, "Remove competency from position success")
+	return ctrl.SuccessResponse(c, nil, "Remove competency from employee success")
 }
 
 // ==========================================
