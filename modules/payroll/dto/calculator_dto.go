@@ -32,3 +32,28 @@ type SalaryPreviewResponse struct {
 	P2Competencies []CompetencyScoreBreakdown `json:"p2_competencies"`
 	Note           string                     `json:"note"`
 }
+
+type SalaryCalculationRequest struct {
+	Period        string      `json:"period" validate:"required"`
+	EmployeeIDs   []uuid.UUID `json:"employee_ids,omitempty"`
+	DepartmentIDs []uuid.UUID `json:"department_ids,omitempty"`
+}
+
+type SalaryCalculationItem struct {
+	EmployeeID   uuid.UUID              `json:"employee_id"`
+	FullName     string                 `json:"full_name"`
+	DepartmentID *uuid.UUID             `json:"department_id,omitempty"`
+	PositionID   *uuid.UUID             `json:"position_id,omitempty"`
+	Status       string                 `json:"status"`
+	Error        string                 `json:"error,omitempty"`
+	Preview      *SalaryPreviewResponse `json:"preview,omitempty"`
+}
+
+type SalaryCalculationResponse struct {
+	Period           string                  `json:"period"`
+	TotalEmployees   int                     `json:"total_employees"`
+	SuccessEmployees int                     `json:"success_employees"`
+	FailedEmployees  int                     `json:"failed_employees"`
+	Items            []SalaryCalculationItem `json:"items"`
+	Note             string                  `json:"note"`
+}

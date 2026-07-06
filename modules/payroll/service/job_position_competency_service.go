@@ -3,6 +3,7 @@ package service
 import (
 	"cal-salary/core/errors"
 	"cal-salary/core/logger"
+	"cal-salary/core/params"
 	"cal-salary/modules/payroll/dto"
 	"cal-salary/modules/payroll/entity"
 	"cal-salary/modules/payroll/mapper"
@@ -113,8 +114,6 @@ func (s *PayrollService) GetAllSystemSettings(ctx context.Context) ([]dto.System
 	return mapper.ToSystemSettingDTOList(settings), nil
 }
 
-
-
 func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID, period string) (*dto.SalaryPreviewResponse, *errors.AppError) {
 	// 1. Lấy hồ sơ nhân sự
 	profile, err := s.repo.GetUserProfileByID(ctx, employeeID)
@@ -125,27 +124,25 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 	if profile == nil {
 		return nil, errors.NewAppError(errors.ErrNotFound, "employee profile not found", nil)
 	}
-	if profile.PositionID == nil {
-		return nil, errors.NewAppError(errors.ErrInvalidInput, "employee does not have an assigned job position", nil)
-	}
 
-	// 2. Tính P1 động từ các tiêu chuẩn công việc của vị trí
-	posStds, err := s.repo.GetStandardsByPosition(ctx, *profile.PositionID)
-	if err != nil {
-		logger.Error("PreviewSalary:GetStandardsByPosition:Error %v", err)
-		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch job position standards", err)
-	}
-
+	// 2. Tính P1 động từ các tiêu chuẩn công việc của vị trí (nếu có vị trí)
 	var p1Score float64
 	var p1StdsBreakdown []dto.JobStandardBreakdown
-	for _, item := range posStds {
-		p1Score += item.AllowanceValue
-		p1StdsBreakdown = append(p1StdsBreakdown, dto.JobStandardBreakdown{
-			StandardID:     item.JobStandardID,
-			StandardCode:   item.StandardCode,
-			StandardName:   item.StandardName,
-			AllowanceValue: item.AllowanceValue,
-		})
+	if profile.PositionID != nil {
+		posStds, err := s.repo.GetStandardsByPosition(ctx, *profile.PositionID)
+		if err != nil {
+			logger.Error("PreviewSalary:GetStandardsByPosition:Error %v", err)
+			return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch job position standards", err)
+		}
+		for _, item := range posStds {
+			p1Score += item.AllowanceValue
+			p1StdsBreakdown = append(p1StdsBreakdown, dto.JobStandardBreakdown{
+				StandardID:     item.JobStandardID,
+				StandardCode:   item.StandardCode,
+				StandardName:   item.StandardName,
+				AllowanceValue: item.AllowanceValue,
+			})
+		}
 	}
 
 	// 3. Lấy đơn giá điểm từ system_settings
@@ -197,5 +194,56 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 		P1Standards:    p1StdsBreakdown,
 		P2Competencies: competencyBreakdowns,
 		Note:           note,
+	}, nil
+}
+
+func (s *PayrollService) RunSalaryCalculation(ctx context.Context, req *dto.SalaryCalculationRequest) (*dto.SalaryCalculationResponse, *errors.AppError) {
+	if req == nil {
+		return nil, errors.NewAppError(errors.ErrInvalidInput, "request body is required", nil)
+	}
+	if req.Period == "" {
+		return nil, errors.NewAppError(errors.ErrInvalidInput, "period is required", nil)
+	}
+
+	// Lấy toàn bộ nhân sự
+	profiles, _, err := s.repo.GetUserProfiles(ctx, params.QueryParams{PageNumber: 1, PageSize: 500})
+	if err != nil {
+		logger.Error("RunSalaryCalculation:GetUserProfiles:Error %v", err)
+		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch employee profiles", err)
+	}
+
+	items := make([]dto.SalaryCalculationItem, 0, len(profiles))
+	successCount := 0
+	failedCount := 0
+
+	for _, profile := range profiles {
+		item := dto.SalaryCalculationItem{
+			EmployeeID:   profile.ID,
+			FullName:     profile.FullName,
+			DepartmentID: profile.DepartmentID,
+			PositionID:   profile.PositionID,
+			Status:       "SUCCESS",
+		}
+
+		preview, calcErr := s.PreviewSalary(ctx, profile.ID, req.Period)
+		if calcErr != nil {
+			item.Status = "FAILED"
+			item.Error = calcErr.Message
+			failedCount++
+		} else {
+			item.Preview = preview
+			successCount++
+		}
+
+		items = append(items, item)
+	}
+
+	return &dto.SalaryCalculationResponse{
+		Period:           req.Period,
+		TotalEmployees:   len(items),
+		SuccessEmployees: successCount,
+		FailedEmployees:  failedCount,
+		Items:            items,
+		Note:             "Tính lương theo công thức: P1 (tiêu chuẩn vị trí) + P2 (năng lực cá nhân) × đơn giá điểm.",
 	}, nil
 }

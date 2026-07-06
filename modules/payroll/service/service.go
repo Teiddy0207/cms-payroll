@@ -85,4 +85,5 @@ type PayrollServiceInterface interface {
 
 	// Calculator
 	PreviewSalary(ctx context.Context, employeeID uuid.UUID, period string) (*dto.SalaryPreviewResponse, *errors.AppError)
+	RunSalaryCalculation(ctx context.Context, req *dto.SalaryCalculationRequest) (*dto.SalaryCalculationResponse, *errors.AppError)
 }

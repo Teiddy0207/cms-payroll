@@ -12,10 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// ==========================================
-// Competency Dictionaries Service Implementation
-// ==========================================
-
 func (s *PayrollService) CreateCompetency(ctx context.Context, req *dto.CreateCompetencyRequest) (*dto.CompetencyResponse, *errors.AppError) {
 	c := mapper.ToCompetencyEntity(req)
 	created, err := s.repo.CreateCompetency(ctx, c)
