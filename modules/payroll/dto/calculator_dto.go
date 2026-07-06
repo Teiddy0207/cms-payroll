@@ -31,6 +31,15 @@ type SalaryPreviewResponse struct {
 	P1Standards    []JobStandardBreakdown     `json:"p1_standards"`
 	P2Competencies []CompetencyScoreBreakdown `json:"p2_competencies"`
 	Note           string                     `json:"note"`
+
+	// Compatibility fields for frontend
+	P1          float64        `json:"p1"`
+	P2          float64        `json:"p2"`
+	Total       float64        `json:"total"`
+	SalaryP1    float64        `json:"salary_p1"`
+	SalaryP2    float64        `json:"salary_p2"`
+	TotalSalary float64        `json:"total_salary"`
+	Breakdown   map[string]any `json:"breakdown,omitempty"`
 }
 
 type SalaryCalculationRequest struct {

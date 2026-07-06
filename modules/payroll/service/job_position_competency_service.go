@@ -181,6 +181,14 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 
 	note := fmt.Sprintf("P1 từ tiêu chuẩn vị trí, P2 từ năng lực cá nhân nhân viên %s.", profile.FullName)
 
+	breakdown := map[string]any{
+		"Đơn giá điểm (system rate)":  systemRate,
+		"Tổng điểm P1 (tiêu chuẩn vị trí)": p1Score,
+		"Thành tiền P1 (cơ bản)":       p1Total,
+		"Tổng điểm P2 (năng lực cá nhân)": p2Score,
+		"Thành tiền P2 (năng lực)":     p2Total,
+	}
+
 	return &dto.SalaryPreviewResponse{
 		EmployeeID:     employeeID,
 		FullName:       profile.FullName,
@@ -194,6 +202,13 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 		P1Standards:    p1StdsBreakdown,
 		P2Competencies: competencyBreakdowns,
 		Note:           note,
+		P1:             p1Total,
+		P2:             p2Total,
+		Total:          subtotal,
+		SalaryP1:       p1Total,
+		SalaryP2:       p2Total,
+		TotalSalary:    subtotal,
+		Breakdown:      breakdown,
 	}, nil
 }
 
