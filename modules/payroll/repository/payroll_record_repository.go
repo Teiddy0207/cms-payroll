@@ -138,3 +138,56 @@ func (r *PayrollRepository) GetPayrollFormulasByPeriod(ctx context.Context, star
 	}
 	return list, nil
 }
+
+func (r *PayrollRepository) CreatePayrollFormula(ctx context.Context, formula *entity.PayrollFormula) (*entity.PayrollFormula, error) {
+	if formula.ID == uuid.Nil {
+		formula.ID = uuid.New()
+	}
+	query := `
+		INSERT INTO payroll_formulas (id, variable_name, expression, start_date, end_date, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+		RETURNING id, variable_name, expression, start_date, end_date, description, created_at, updated_at
+	`
+	var created entity.PayrollFormula
+	err := r.DB.SQLx().GetContext(ctx, &created, query,
+		formula.ID, formula.VariableName, formula.Expression,
+		formula.StartDate, formula.EndDate, formula.Description,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &created, nil
+}
+
+func (r *PayrollRepository) GetPayrollFormulas(ctx context.Context) ([]entity.PayrollFormula, error) {
+	var list []entity.PayrollFormula
+	query := `SELECT id, variable_name, expression, start_date, end_date, description, created_at, updated_at FROM payroll_formulas ORDER BY start_date DESC`
+	err := r.DB.SQLx().SelectContext(ctx, &list, query)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []entity.PayrollFormula{}, nil
+		}
+		return nil, err
+	}
+	return list, nil
+}
+
+func (r *PayrollRepository) UpdatePayrollFormula(ctx context.Context, id uuid.UUID, formula *entity.PayrollFormula) error {
+	query := `
+		UPDATE payroll_formulas
+		SET variable_name = $1, expression = $2, start_date = $3, end_date = $4, description = $5, updated_at = NOW()
+		WHERE id = $6
+	`
+	_, err := r.DB.SQLx().ExecContext(ctx, query,
+		formula.VariableName, formula.Expression,
+		formula.StartDate, formula.EndDate, formula.Description,
+		id,
+	)
+	return err
+}
+
+func (r *PayrollRepository) DeletePayrollFormula(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM payroll_formulas WHERE id = $1`
+	_, err := r.DB.SQLx().ExecContext(ctx, query, id)
+	return err
+}

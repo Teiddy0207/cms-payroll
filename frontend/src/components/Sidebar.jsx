@@ -13,7 +13,8 @@ const navSections = [
     title: 'Lương',
     items: [
       { path: '/payroll', label: 'Lương tham khảo' },
-      { path: '/payroll-run', label: 'Tính lương tháng' }
+      { path: '/payroll-run', label: 'Tính lương tháng' },
+      { path: '/payroll-formulas', label: 'Công thức lương' }
     ]
   },
   {

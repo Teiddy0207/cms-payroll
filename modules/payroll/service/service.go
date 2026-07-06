@@ -91,4 +91,10 @@ type PayrollServiceInterface interface {
 	RunSalaryCalculationAsync(ctx context.Context, req *dto.SalaryCalculationRequest) (string, *errors.AppError)
 	GetCalculationJobStatus(ctx context.Context, jobID string) (map[string]any, *errors.AppError)
 	GetSavedPayrollRecords(ctx context.Context, period string) ([]dto.SalaryCalculationItem, *errors.AppError)
+
+	// Formulas CRUD
+	CreatePayrollFormula(ctx context.Context, req *dto.CreateFormulaRequest) (*dto.FormulaResponse, *errors.AppError)
+	GetPayrollFormulas(ctx context.Context) ([]dto.FormulaResponse, *errors.AppError)
+	UpdatePayrollFormula(ctx context.Context, id uuid.UUID, req *dto.UpdateFormulaRequest) *errors.AppError
+	DeletePayrollFormula(ctx context.Context, id uuid.UUID) *errors.AppError
 }

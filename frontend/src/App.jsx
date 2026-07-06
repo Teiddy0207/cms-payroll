@@ -12,6 +12,7 @@ import CompetenciesPage from './pages/CompetenciesPage.jsx';
 import DepartmentsPage from './pages/DepartmentsPage.jsx';
 import ContractsPage from './pages/ContractsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import FormulasPage from './pages/FormulasPage.jsx';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('auth_token');
@@ -41,6 +42,7 @@ function App() {
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="payroll" element={<PayrollPage />} />
             <Route path="payroll-run" element={<PayrollRunPage />} />
+            <Route path="payroll-formulas" element={<FormulasPage />} />
             <Route path="contracts" element={<ContractsPage />} />
             <Route path="departments" element={<DepartmentsPage />} />
             <Route path="job-positions" element={<JobPositionsPage />} />

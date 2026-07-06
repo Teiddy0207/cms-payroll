@@ -94,4 +94,10 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	payrollRoutes.POST("/calculator/run", r.PayrollController.RunSalaryCalculation)
 	payrollRoutes.GET("/calculator/job/:job_id", r.PayrollController.GetCalculationJobStatus)
 	payrollRoutes.GET("/calculator/records", r.PayrollController.GetSavedPayrollRecords)
+
+	// Formulas CRUD
+	payrollRoutes.POST("/calculator/formulas", r.PayrollController.CreatePayrollFormula)
+	payrollRoutes.GET("/calculator/formulas", r.PayrollController.GetPayrollFormulas)
+	payrollRoutes.PUT("/calculator/formulas/:id", r.PayrollController.UpdatePayrollFormula)
+	payrollRoutes.DELETE("/calculator/formulas/:id", r.PayrollController.DeletePayrollFormula)
 }

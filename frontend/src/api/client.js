@@ -146,6 +146,14 @@ export const calculatorAPI = {
     client.get(`/private/payroll/calculator/job/${jobId}`),
   getSavedRecords: (period) =>
     client.get('/private/payroll/calculator/records', { params: { period } }),
+  getFormulas: () =>
+    client.get('/private/payroll/calculator/formulas'),
+  createFormula: (data) =>
+    client.post('/private/payroll/calculator/formulas', data),
+  updateFormula: (id, data) =>
+    client.put(`/private/payroll/calculator/formulas/${id}`, data),
+  deleteFormula: (id) =>
+    client.delete(`/private/payroll/calculator/formulas/${id}`),
 };
 
 export default client;

@@ -96,4 +96,8 @@ type PayrollRepositoryInterface interface {
 	GetPayrollRecords(ctx context.Context, periodID uuid.UUID) ([]entity.PayrollRecord, error)
 	GetPayrollRecordDetails(ctx context.Context, recordID uuid.UUID) ([]entity.PayrollRecordDetail, error)
 	GetPayrollFormulasByPeriod(ctx context.Context, start, end time.Time) ([]entity.PayrollFormula, error)
+	CreatePayrollFormula(ctx context.Context, formula *entity.PayrollFormula) (*entity.PayrollFormula, error)
+	GetPayrollFormulas(ctx context.Context) ([]entity.PayrollFormula, error)
+	UpdatePayrollFormula(ctx context.Context, id uuid.UUID, formula *entity.PayrollFormula) error
+	DeletePayrollFormula(ctx context.Context, id uuid.UUID) error
 }
