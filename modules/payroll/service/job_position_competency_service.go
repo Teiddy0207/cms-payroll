@@ -10,7 +10,11 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
 
+	"github.com/expr-lang/expr"
 	"github.com/google/uuid"
 )
 
@@ -182,11 +186,11 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 	note := fmt.Sprintf("P1 từ tiêu chuẩn vị trí, P2 từ năng lực cá nhân nhân viên %s.", profile.FullName)
 
 	breakdown := map[string]any{
-		"Đơn giá điểm (system rate)":  systemRate,
+		"Đơn giá điểm (system rate)":       systemRate,
 		"Tổng điểm P1 (tiêu chuẩn vị trí)": p1Score,
-		"Thành tiền P1 (cơ bản)":       p1Total,
-		"Tổng điểm P2 (năng lực cá nhân)": p2Score,
-		"Thành tiền P2 (năng lực)":     p2Total,
+		"Thành tiền P1 (cơ bản)":           p1Total,
+		"Tổng điểm P2 (năng lực cá nhân)":  p2Score,
+		"Thành tiền P2 (năng lực)":         p2Total,
 	}
 
 	return &dto.SalaryPreviewResponse{
@@ -261,4 +265,288 @@ func (s *PayrollService) RunSalaryCalculation(ctx context.Context, req *dto.Sala
 		Items:            items,
 		Note:             "Tính lương theo công thức: P1 (tiêu chuẩn vị trí) + P2 (năng lực cá nhân) × đơn giá điểm.",
 	}, nil
+}
+
+func parsePeriodDates(period string) (time.Time, time.Time, int, int, error) {
+	t, err := time.Parse("2006-01", period)
+	if err != nil {
+		return time.Time{}, time.Time{}, 0, 0, err
+	}
+	start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
+	return start, end, int(t.Month()), t.Year(), nil
+}
+
+func convertToFloat64(val interface{}) (float64, bool) {
+	switch v := val.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	}
+	return 0, false
+}
+
+func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto.SalaryCalculationRequest) (string, *errors.AppError) {
+	if req == nil || req.Period == "" {
+		return "", errors.NewAppError(errors.ErrInvalidInput, "period is required", nil)
+	}
+
+	start, end, month, year, err := parsePeriodDates(req.Period)
+	if err != nil {
+		return "", errors.NewAppError(errors.ErrInvalidInput, "invalid period format", err)
+	}
+
+	lockKey := "bluenet_3ps_backend:lock:payroll:run:" + req.Period
+	ok, err := s.cache.GetClient().SetNX(ctx, lockKey, "1", 5*time.Minute).Result()
+	if err != nil || !ok {
+		return "", errors.NewAppError(errors.ErrResourceLocked, "a calculation job is already running for this period", nil)
+	}
+
+	periodRecord, err := s.repo.GetOrCreatePeriod(ctx, month, year)
+	if err != nil {
+		s.cache.Del(ctx, lockKey)
+		return "", errors.NewAppError(errors.ErrInternalServer, "failed to get or create payroll period", err)
+	}
+
+	jobID := uuid.New().String()
+	jobKey := "bluenet_3ps_backend:job:payroll:" + jobID
+
+	jobData := map[string]interface{}{
+		"job_id":          jobID,
+		"period":          req.Period,
+		"status":          "RUNNING",
+		"total_employees": 0,
+		"success_count":   0,
+		"failed_count":    0,
+	}
+	err = s.cache.GetClient().HSet(ctx, jobKey, jobData).Err()
+	if err != nil {
+		s.cache.Del(ctx, lockKey)
+		return "", errors.NewAppError(errors.ErrInternalServer, "failed to initialize job status", err)
+	}
+	s.cache.GetClient().Expire(ctx, jobKey, 24*time.Hour)
+
+	go func() {
+		bgCtx := context.Background()
+		profiles, _, err := s.repo.GetUserProfiles(bgCtx, params.QueryParams{PageNumber: 1, PageSize: 1000})
+		if err != nil {
+			s.cache.GetClient().HSet(bgCtx, jobKey, "status", "FAILED", "error", err.Error())
+			s.cache.Del(bgCtx, lockKey)
+			return
+		}
+
+		total := len(profiles)
+		s.cache.GetClient().HSet(bgCtx, jobKey, "total_employees", total)
+
+		formulas, _ := s.repo.GetPayrollFormulasByPeriod(bgCtx, start, end)
+
+		formulaMap := make(map[string]string)
+		for _, f := range formulas {
+			formulaMap[f.VariableName] = f.Expression
+		}
+
+		numWorkers := 5
+		if total < numWorkers {
+			numWorkers = total
+		}
+		if numWorkers == 0 {
+			numWorkers = 1
+		}
+
+		profileChan := make(chan entity.UserProfile, total)
+		for _, p := range profiles {
+			profileChan <- p
+		}
+		close(profileChan)
+
+		var wg sync.WaitGroup
+		var successCounter int64
+		var failedCounter int64
+
+		for i := 0; i < numWorkers; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for p := range profileChan {
+					empLockKey := fmt.Sprintf("bluenet_3ps_backend:lock:payroll:process:%s:%s", req.Period, p.ID.String())
+					ok, err := s.cache.GetClient().SetNX(bgCtx, empLockKey, "1", 30*time.Second).Result()
+					if err != nil || !ok {
+						atomic.AddInt64(&failedCounter, 1)
+						s.cache.GetClient().HSet(bgCtx, jobKey, "failed_count", atomic.LoadInt64(&failedCounter))
+						continue
+					}
+
+					calcItemErr := s.calculateAndSaveEmployee(bgCtx, periodRecord.ID, p, req.Period, formulaMap)
+					s.cache.Del(bgCtx, empLockKey)
+
+					if calcItemErr != nil {
+						atomic.AddInt64(&failedCounter, 1)
+						s.cache.GetClient().HSet(bgCtx, jobKey, "failed_count", atomic.LoadInt64(&failedCounter))
+					} else {
+						atomic.AddInt64(&successCounter, 1)
+						s.cache.GetClient().HSet(bgCtx, jobKey, "success_count", atomic.LoadInt64(&successCounter))
+					}
+				}
+			}()
+		}
+
+		wg.Wait()
+		s.cache.GetClient().HSet(bgCtx, jobKey, "status", "SUCCESS")
+		s.cache.Del(bgCtx, lockKey)
+	}()
+
+	return jobID, nil
+}
+
+func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID uuid.UUID, profile entity.UserProfile, period string, formulaMap map[string]string) error {
+	preview, err := s.PreviewSalary(ctx, profile.ID, period)
+	if err != nil {
+		return err
+	}
+
+	p1 := preview.P1Total
+	p2 := preview.P2Total
+	p3 := 0.0
+
+	gross := p1 + p2 + p3
+	tax := gross * 0.1
+	net := gross - tax
+
+	env := map[string]interface{}{
+		"P1":           p1,
+		"P2":           p2,
+		"P3":           p3,
+		"GROSS_SALARY": gross,
+		"TAX":          tax,
+		"NET_SALARY":   net,
+	}
+
+	if exprStr, ok := formulaMap["GROSS_SALARY"]; ok {
+		program, err := expr.Compile(exprStr, expr.Env(env))
+		if err == nil {
+			output, err := expr.Run(program, env)
+			if err == nil {
+				if val, ok := convertToFloat64(output); ok {
+					gross = val
+					env["GROSS_SALARY"] = val
+				}
+			}
+		}
+	}
+
+	env["GROSS_SALARY"] = gross
+
+	if exprStr, ok := formulaMap["TAX"]; ok {
+		program, err := expr.Compile(exprStr, expr.Env(env))
+		if err == nil {
+			output, err := expr.Run(program, env)
+			if err == nil {
+				if val, ok := convertToFloat64(output); ok {
+					tax = val
+					env["TAX"] = val
+				}
+			}
+		}
+	}
+
+	env["TAX"] = tax
+
+	if exprStr, ok := formulaMap["NET_SALARY"]; ok {
+		program, err := expr.Compile(exprStr, expr.Env(env))
+		if err == nil {
+			output, err := expr.Run(program, env)
+			if err == nil {
+				if val, ok := convertToFloat64(output); ok {
+					net = val
+					env["NET_SALARY"] = val
+				}
+			}
+		}
+	}
+
+	record := &entity.PayrollRecord{
+		PeriodID:    periodID,
+		EmployeeID:  profile.ID,
+		P1Value:     p1,
+		P2Value:     p2,
+		P3Value:     p3,
+		GrossSalary: gross,
+		Tax:         tax,
+		NetSalary:   net,
+		Status:      "DRAFT",
+	}
+
+	details := []entity.PayrollRecordDetail{
+		{Component: "P1", Description: "Lương vị trí P1", Source: "POSITION", Amount: p1},
+		{Component: "P2", Description: "Lương năng lực P2", Source: "PERSONAL", Amount: p2},
+		{Component: "P3", Description: "Lương hiệu quả P3", Source: "FORMULA", Amount: p3},
+		{Component: "GROSS", Description: "Tổng thu nhập chịu thuế", Source: "FORMULA", Amount: gross},
+		{Component: "TAX", Description: "Thuế thu nhập cá nhân", Source: "FORMULA", Amount: tax},
+		{Component: "NET", Description: "Thực nhận", Source: "FORMULA", Amount: net},
+	}
+
+	return s.repo.UpsertPayrollRecord(ctx, record, details)
+}
+
+func (s *PayrollService) GetCalculationJobStatus(ctx context.Context, jobID string) (map[string]any, *errors.AppError) {
+	jobKey := "bluenet_3ps_backend:job:payroll:" + jobID
+	data, err := s.cache.GetClient().HGetAll(ctx, jobKey).Result()
+	if err != nil {
+		logger.Error("GetCalculationJobStatus:Error %v", err)
+		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to get job status", err)
+	}
+	if len(data) == 0 {
+		return nil, errors.NewAppError(errors.ErrNotFound, "job not found", nil)
+	}
+
+	result := make(map[string]any)
+	for k, v := range data {
+		result[k] = v
+	}
+	return result, nil
+}
+
+func (s *PayrollService) GetSavedPayrollRecords(ctx context.Context, period string) ([]dto.SalaryCalculationItem, *errors.AppError) {
+	_, _, month, year, err := parsePeriodDates(period)
+	if err != nil {
+		return nil, errors.NewAppError(errors.ErrInvalidInput, "invalid period format", err)
+	}
+
+	periodRecord, err := s.repo.GetPayrollPeriodByMonthYear(ctx, month, year)
+	if err != nil {
+		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch payroll period", err)
+	}
+	if periodRecord == nil {
+		return []dto.SalaryCalculationItem{}, nil
+	}
+
+	records, err := s.repo.GetPayrollRecords(ctx, periodRecord.ID)
+	if err != nil {
+		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch payroll records", err)
+	}
+
+	items := make([]dto.SalaryCalculationItem, 0, len(records))
+	for _, r := range records {
+		profile, err := s.repo.GetUserProfileByID(ctx, r.EmployeeID)
+		if err != nil {
+			continue
+		}
+
+		details, err := s.repo.GetPayrollRecordDetails(ctx, r.ID)
+		if err != nil {
+			continue
+		}
+
+		item := mapper.ToSalaryCalculationItem(&r, profile, details, period)
+		items = append(items, *item)
+	}
+
+	return items, nil
 }

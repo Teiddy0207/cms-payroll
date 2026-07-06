@@ -1,6 +1,7 @@
 package service
 
 import (
+	"cal-salary/core/cache"
 	"cal-salary/core/errors"
 	"cal-salary/core/params"
 	"cal-salary/modules/payroll/dto"
@@ -11,11 +12,12 @@ import (
 )
 
 type PayrollService struct {
-	repo repository.PayrollRepositoryInterface
+	repo  repository.PayrollRepositoryInterface
+	cache *cache.Cache
 }
 
-func NewPayrollService(repo repository.PayrollRepositoryInterface) *PayrollService {
-	return &PayrollService{repo: repo}
+func NewPayrollService(repo repository.PayrollRepositoryInterface, redisCache *cache.Cache) *PayrollService {
+	return &PayrollService{repo: repo, cache: redisCache}
 }
 
 type PayrollServiceInterface interface {
@@ -86,4 +88,7 @@ type PayrollServiceInterface interface {
 	// Calculator
 	PreviewSalary(ctx context.Context, employeeID uuid.UUID, period string) (*dto.SalaryPreviewResponse, *errors.AppError)
 	RunSalaryCalculation(ctx context.Context, req *dto.SalaryCalculationRequest) (*dto.SalaryCalculationResponse, *errors.AppError)
+	RunSalaryCalculationAsync(ctx context.Context, req *dto.SalaryCalculationRequest) (string, *errors.AppError)
+	GetCalculationJobStatus(ctx context.Context, jobID string) (map[string]any, *errors.AppError)
+	GetSavedPayrollRecords(ctx context.Context, period string) ([]dto.SalaryCalculationItem, *errors.AppError)
 }

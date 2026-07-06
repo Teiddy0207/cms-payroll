@@ -92,4 +92,6 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	// Calculator Engine endpoints
 	payrollRoutes.GET("/calculator/preview/:employee_id", r.PayrollController.PreviewSalary)
 	payrollRoutes.POST("/calculator/run", r.PayrollController.RunSalaryCalculation)
+	payrollRoutes.GET("/calculator/job/:job_id", r.PayrollController.GetCalculationJobStatus)
+	payrollRoutes.GET("/calculator/records", r.PayrollController.GetSavedPayrollRecords)
 }

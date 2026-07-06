@@ -5,6 +5,7 @@ import (
 	"cal-salary/core/params"
 	"cal-salary/modules/payroll/entity"
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -87,4 +88,12 @@ type PayrollRepositoryInterface interface {
 	GetSystemSetting(ctx context.Context, key string) (*entity.SystemSetting, error)
 	SetSystemSetting(ctx context.Context, setting *entity.SystemSetting) error
 	GetAllSystemSettings(ctx context.Context) ([]entity.SystemSetting, error)
+
+	// Payroll Batch Calculation
+	GetOrCreatePeriod(ctx context.Context, month, year int) (*entity.PayrollPeriod, error)
+	GetPayrollPeriodByMonthYear(ctx context.Context, month, year int) (*entity.PayrollPeriod, error)
+	UpsertPayrollRecord(ctx context.Context, record *entity.PayrollRecord, details []entity.PayrollRecordDetail) error
+	GetPayrollRecords(ctx context.Context, periodID uuid.UUID) ([]entity.PayrollRecord, error)
+	GetPayrollRecordDetails(ctx context.Context, recordID uuid.UUID) ([]entity.PayrollRecordDetail, error)
+	GetPayrollFormulasByPeriod(ctx context.Context, start, end time.Time) ([]entity.PayrollFormula, error)
 }

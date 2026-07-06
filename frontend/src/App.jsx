@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import EmployeesPage from './pages/EmployeesPage.jsx';
 import PayrollPage from './pages/PayrollPage.jsx';
+import PayrollRunPage from './pages/PayrollRunPage.jsx';
 import JobPositionsPage from './pages/JobPositionsPage.jsx';
 import JobStandardsPage from './pages/JobStandardsPage.jsx';
 import CompetenciesPage from './pages/CompetenciesPage.jsx';
@@ -39,6 +40,7 @@ function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="payroll" element={<PayrollPage />} />
+            <Route path="payroll-run" element={<PayrollRunPage />} />
             <Route path="contracts" element={<ContractsPage />} />
             <Route path="departments" element={<DepartmentsPage />} />
             <Route path="job-positions" element={<JobPositionsPage />} />

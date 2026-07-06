@@ -194,7 +194,7 @@ func initServer() (*Server, error) {
 	activityLogSvc := activity_log.Init(e, db, middlewareInstance)
 	authMod.SetupRouter(e, middlewareInstance, activityLogSvc)
 
-	payrollMod := payroll.Init(db)
+	payrollMod := payroll.Init(db, redisCache)
 	payrollMod.SetupRouter(e, middlewareInstance, activityLogSvc)
 
 	return &Server{

@@ -2,16 +2,42 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { authAPI } from '../api/client.js';
 import { useToast } from '../hooks/useToast.js';
 
-const navItems = [
-  { path: '/dashboard', label: 'Dashboard' },
-  { path: '/employees', label: 'Nhân viên' },
-  { path: '/payroll', label: 'Tính lương' },
-  { path: '/contracts', label: 'Hợp đồng' },
-  { path: '/departments', label: 'Phòng ban' },
-  { path: '/job-positions', label: 'Vị trí công việc' },
-  { path: '/job-standards', label: 'Tiêu chuẩn' },
-  { path: '/competencies', label: 'Năng lực' },
-  { path: '/settings', label: 'Cài đặt' },
+const navSections = [
+  {
+    title: 'Thống kê',
+    items: [
+      { path: '/dashboard', label: 'Dashboard' }
+    ]
+  },
+  {
+    title: 'Lương',
+    items: [
+      { path: '/payroll', label: 'Lương tham khảo' },
+      { path: '/payroll-run', label: 'Tính lương tháng' }
+    ]
+  },
+  {
+    title: 'Quản lý nhân sự',
+    items: [
+      { path: '/departments', label: 'Phòng ban' },
+      { path: '/employees', label: 'Nhân viên' }
+    ]
+  },
+  {
+    title: 'Đánh giá',
+    items: [
+      { path: '/job-standards', label: 'Tiêu chuẩn' },
+      { path: '/competencies', label: 'Năng lực' },
+      { path: '/job-positions', label: 'Vị trí công việc' }
+    ]
+  },
+  {
+    title: 'Hệ thống',
+    items: [
+      { path: '/contracts', label: 'Hợp đồng' },
+      { path: '/settings', label: 'Cài đặt' }
+    ]
+  }
 ];
 
 export function Sidebar() {
@@ -38,15 +64,21 @@ export function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        <div className="nav-section-label">MENU</div>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-          >
-            <span className="nav-label">{item.label}</span>
-          </NavLink>
+        {navSections.map((section) => (
+          <div key={section.title} className="nav-section" style={{ marginBottom: 12 }}>
+            <div className="nav-section-label">{section.title}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                >
+                  <span className="nav-label">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 

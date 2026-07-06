@@ -140,6 +140,12 @@ export const settingsAPI = {
 export const calculatorAPI = {
   preview: (employeeId, period) =>
     client.get(`/private/payroll/calculator/preview/${employeeId}`, { params: { period } }),
+  runCalculation: (data) =>
+    client.post('/private/payroll/calculator/run', data),
+  getJobStatus: (jobId) =>
+    client.get(`/private/payroll/calculator/job/${jobId}`),
+  getSavedRecords: (period) =>
+    client.get('/private/payroll/calculator/records', { params: { period } }),
 };
 
 export default client;
