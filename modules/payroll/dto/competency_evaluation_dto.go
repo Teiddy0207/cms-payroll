@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"cal-salary/core/dto"
+	coredto "cal-salary/core/dto"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,4 +31,4 @@ type EvaluationResponse struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
-type PaginatedEvaluationDTO = dto.Pagination[EvaluationResponse]
+type PaginatedEvaluationDTO = coredto.Pagination[EvaluationResponse]
