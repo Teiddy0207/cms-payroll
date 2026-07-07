@@ -13,6 +13,7 @@ import (
 	"cal-salary/modules/activity_log"
 	"cal-salary/modules/auth"
 	"cal-salary/modules/payroll"
+	"cal-salary/modules/timekeeping"
 	"context"
 	"flag"
 	"fmt"
@@ -196,6 +197,9 @@ func initServer() (*Server, error) {
 
 	payrollMod := payroll.Init(db, redisCache)
 	payrollMod.SetupRouter(e, middlewareInstance, activityLogSvc)
+
+	timekeepingMod := timekeeping.Init(db, redisCache)
+	timekeepingMod.SetupRouter(e, middlewareInstance, activityLogSvc)
 
 	return &Server{
 		echo:  e,

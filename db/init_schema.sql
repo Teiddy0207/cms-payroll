@@ -338,6 +338,16 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- 27. Attendance Logs (Raw check-in data)
+CREATE TABLE IF NOT EXISTS attendance_logs (
+    id UUID PRIMARY KEY,
+    employee_code VARCHAR(100) NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    location_gps VARCHAR(255) NOT NULL,
+    device_id VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Default system admin user seeding (required for standard seeds to refer to)
 INSERT INTO job_descriptions (id, code, name, description)
 VALUES ('00000000-0000-0000-0000-000000000000', 'ADMIN_POS', 'Administrator', 'System administrator position')

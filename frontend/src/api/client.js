@@ -156,4 +156,26 @@ export const calculatorAPI = {
     client.delete(`/private/payroll/calculator/formulas/${id}`),
 };
 
+// ===================== TIMEKEEPING =====================
+export const timekeepingAPI = {
+  checkin: (data) =>
+    client.post('/private/timekeeping/checkin', data),
+  getSheets: (period) =>
+    client.get('/private/timekeeping/sheets', { params: { period } }),
+  calculateSheets: (data) =>
+    client.post('/private/timekeeping/sheets/calculate', data),
+  getExplanations: () =>
+    client.get('/private/timekeeping/explanations'),
+  createExplanation: (data) =>
+    client.post('/private/timekeeping/explanations', data),
+  updateExplanationStatus: (id, status) =>
+    client.put(`/private/timekeeping/explanations/${id}/status`, { status }),
+  getOTRequests: () =>
+    client.get('/private/timekeeping/ot-requests'),
+  createOTRequest: (data) =>
+    client.post('/private/timekeeping/ot-requests', data),
+  updateOTRequestStatus: (id, status) =>
+    client.put(`/private/timekeeping/ot-requests/${id}/status`, { status }),
+};
+
 export default client;

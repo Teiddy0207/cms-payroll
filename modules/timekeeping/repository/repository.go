@@ -1,0 +1,28 @@
+package repository
+
+import (
+	"cal-salary/modules/timekeeping/entity"
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type TimekeepingRepository interface {
+	CreateAttendanceLog(ctx context.Context, log *entity.AttendanceLog) error
+	GetAttendanceLogs(ctx context.Context, employeeCode string, start, end time.Time) ([]entity.AttendanceLog, error)
+	GetAttendanceLogsForCalculation(ctx context.Context, start, end time.Time) ([]entity.AttendanceLog, error)
+
+	UpsertDailyAttendanceSheet(ctx context.Context, sheet *entity.DailyAttendanceSheet) error
+	GetDailyAttendanceSheets(ctx context.Context, employeeID *uuid.UUID, start, end time.Time) ([]entity.DailyAttendanceSheet, error)
+
+	CreateExplanationRequest(ctx context.Context, req *entity.ExplanationRequest) error
+	GetExplanationRequestByID(ctx context.Context, id uuid.UUID) (*entity.ExplanationRequest, error)
+	UpdateExplanationRequest(ctx context.Context, req *entity.ExplanationRequest) error
+	GetExplanationRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID) ([]entity.ExplanationRequest, error)
+
+	CreateOTRequest(ctx context.Context, req *entity.OTRequest) error
+	GetOTRequestByID(ctx context.Context, id uuid.UUID) (*entity.OTRequest, error)
+	UpdateOTRequest(ctx context.Context, req *entity.OTRequest) error
+	GetOTRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID) ([]entity.OTRequest, error)
+}
