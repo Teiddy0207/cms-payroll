@@ -251,3 +251,54 @@ func (r *TimekeepingRepositoryImpl) GetOTRequests(ctx context.Context, employeeI
 	}
 	return list, nil
 }
+
+func (r *TimekeepingRepositoryImpl) CreateFaceTemplate(ctx context.Context, template *entity.EmployeeFaceTemplate) error {
+	query := `
+		INSERT INTO employee_face_templates (id, employee_code, face_data, created_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (employee_code) DO UPDATE
+		SET face_data = EXCLUDED.face_data
+	`
+	_, err := r.DB.SQLx().ExecContext(ctx, query, template.ID, template.EmployeeCode, template.FaceData)
+	return err
+}
+
+func (r *TimekeepingRepositoryImpl) GetFaceTemplates(ctx context.Context) ([]entity.EmployeeFaceTemplate, error) {
+	var list []entity.EmployeeFaceTemplate
+	query := `
+		SELECT id, employee_code, face_data, created_at
+		FROM employee_face_templates
+		ORDER BY created_at DESC
+	`
+	err := r.DB.SQLx().SelectContext(ctx, &list, query)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []entity.EmployeeFaceTemplate{}, nil
+		}
+		return nil, err
+	}
+	return list, nil
+}
+
+func (r *TimekeepingRepositoryImpl) GetFaceTemplateByCode(ctx context.Context, code string) (*entity.EmployeeFaceTemplate, error) {
+	var template entity.EmployeeFaceTemplate
+	query := `
+		SELECT id, employee_code, face_data, created_at
+		FROM employee_face_templates
+		WHERE employee_code = $1
+	`
+	err := r.DB.SQLx().GetContext(ctx, &template, query, code)
+	if err != nil {
+		return nil, err
+	}
+	return &template, nil
+}
+
+func (r *TimekeepingRepositoryImpl) DeleteFaceTemplate(ctx context.Context, code string) error {
+	query := `
+		DELETE FROM employee_face_templates
+		WHERE employee_code = $1
+	`
+	_, err := r.DB.SQLx().ExecContext(ctx, query, code)
+	return err
+}

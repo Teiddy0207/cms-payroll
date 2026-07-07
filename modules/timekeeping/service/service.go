@@ -20,4 +20,8 @@ type TimekeepingService interface {
 	CreateOTRequest(ctx context.Context, userID uuid.UUID, req *dto.CreateOTRequest) (*dto.OTRequestResponse, *errors.AppError)
 	GetOTRequests(ctx context.Context, userID uuid.UUID) ([]dto.OTRequestResponse, *errors.AppError)
 	UpdateOTRequestStatus(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.UpdateRequestStatus) *errors.AppError
+
+	RegisterFaceTemplate(ctx context.Context, req *dto.RegisterFaceRequest) *errors.AppError
+	GetFaceTemplates(ctx context.Context) ([]dto.FaceTemplateResponse, *errors.AppError)
+	DeleteFaceTemplate(ctx context.Context, code string) *errors.AppError
 }

@@ -213,3 +213,47 @@ func (ctrl *TimekeepingController) UpdateOTRequestStatus(c echo.Context) error {
 	}
 	return ctrl.SuccessResponse(c, nil, "Phê duyệt đơn đăng ký OT thành công")
 }
+
+func (ctrl *TimekeepingController) RegisterFaceTemplate(c echo.Context) error {
+	ctx := c.Request().Context()
+	req := new(dto.RegisterFaceRequest)
+	if err := c.Bind(req); err != nil {
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Dữ liệu đăng ký không hợp lệ", nil)
+	}
+
+	if req.EmployeeCode == "" || req.FaceData == "" {
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Mã nhân viên và đặc trưng khuôn mặt không được để trống", nil)
+	}
+
+	appErr := ctrl.Service.RegisterFaceTemplate(ctx, req)
+	if appErr != nil {
+		if appErr.Code == errors.ErrNotFound {
+			return c.JSON(http.StatusNotFound, echo.Map{"code": appErr.Code, "message": appErr.Message})
+		}
+		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
+	}
+	return ctrl.SuccessResponse(c, nil, "Lưu dữ liệu khuôn mặt thành công")
+}
+
+func (ctrl *TimekeepingController) GetFaceTemplates(c echo.Context) error {
+	ctx := c.Request().Context()
+	resp, appErr := ctrl.Service.GetFaceTemplates(ctx)
+	if appErr != nil {
+		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
+	}
+	return ctrl.SuccessResponse(c, resp, "Tải danh sách khuôn mặt thành công")
+}
+
+func (ctrl *TimekeepingController) DeleteFaceTemplate(c echo.Context) error {
+	ctx := c.Request().Context()
+	code := c.Param("code")
+	if code == "" {
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Thiếu mã nhân viên", nil)
+	}
+
+	appErr := ctrl.Service.DeleteFaceTemplate(ctx, code)
+	if appErr != nil {
+		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
+	}
+	return ctrl.SuccessResponse(c, nil, "Xóa dữ liệu khuôn mặt thành công")
+}

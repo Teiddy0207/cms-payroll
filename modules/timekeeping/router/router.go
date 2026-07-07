@@ -38,4 +38,8 @@ func (r *TimekeepingRouter) Setup(e *echo.Echo, middlewareInstance *middleware.M
 	timekeepingRoutes.POST("/ot-requests", r.TimekeepingController.CreateOTRequest)
 	timekeepingRoutes.GET("/ot-requests", r.TimekeepingController.GetOTRequests)
 	timekeepingRoutes.PUT("/ot-requests/:id/status", r.TimekeepingController.UpdateOTRequestStatus)
+
+	timekeepingRoutes.POST("/faces", r.TimekeepingController.RegisterFaceTemplate)
+	timekeepingRoutes.GET("/faces", r.TimekeepingController.GetFaceTemplates)
+	timekeepingRoutes.DELETE("/faces/:code", r.TimekeepingController.DeleteFaceTemplate)
 }

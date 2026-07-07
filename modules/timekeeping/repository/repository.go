@@ -25,4 +25,9 @@ type TimekeepingRepository interface {
 	GetOTRequestByID(ctx context.Context, id uuid.UUID) (*entity.OTRequest, error)
 	UpdateOTRequest(ctx context.Context, req *entity.OTRequest) error
 	GetOTRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID) ([]entity.OTRequest, error)
+
+	CreateFaceTemplate(ctx context.Context, template *entity.EmployeeFaceTemplate) error
+	GetFaceTemplates(ctx context.Context) ([]entity.EmployeeFaceTemplate, error)
+	GetFaceTemplateByCode(ctx context.Context, code string) (*entity.EmployeeFaceTemplate, error)
+	DeleteFaceTemplate(ctx context.Context, code string) error
 }

@@ -13,3 +13,15 @@ type CheckinResponse struct {
 	Message   string    `json:"message"`
 	Timestamp time.Time `json:"timestamp"`
 }
+
+type RegisterFaceRequest struct {
+	EmployeeCode string `json:"employee_code"`
+	FaceData     string `json:"face_data"`
+}
+
+type FaceTemplateResponse struct {
+	EmployeeCode string    `json:"employee_code"`
+	EmployeeName string    `json:"employee_name"`
+	FaceData     string    `json:"face_data"`
+	CreatedAt    time.Time `json:"created_at"`
+}

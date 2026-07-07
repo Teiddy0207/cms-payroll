@@ -176,6 +176,12 @@ export const timekeepingAPI = {
     client.post('/private/timekeeping/ot-requests', data),
   updateOTRequestStatus: (id, status) =>
     client.put(`/private/timekeeping/ot-requests/${id}/status`, { status }),
+  registerFace: (data) =>
+    client.post('/private/timekeeping/faces', data),
+  getFaces: () =>
+    client.get('/private/timekeeping/faces'),
+  deleteFace: (code) =>
+    client.delete(`/private/timekeeping/faces/${code}`),
 };
 
 export default client;

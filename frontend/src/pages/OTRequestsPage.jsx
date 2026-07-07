@@ -164,7 +164,7 @@ export function OTRequestsPage() {
 					</p>
 				</div>
 				<button className="btn btn-primary" onClick={handleOpenCreate}>
-					➕ Đăng ký làm thêm
+					Dang ky lam them
 				</button>
 			</div>
 

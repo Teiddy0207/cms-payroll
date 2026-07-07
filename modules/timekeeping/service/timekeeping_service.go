@@ -655,3 +655,61 @@ func (s *TimekeepingServiceImpl) UpdateOTRequestStatus(ctx context.Context, user
 
 	return nil
 }
+
+func (s *TimekeepingServiceImpl) RegisterFaceTemplate(ctx context.Context, req *dto.RegisterFaceRequest) *errors.AppError {
+	_, err := s.getProfileByCode(ctx, req.EmployeeCode)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.NewAppError(errors.ErrNotFound, "Không tìm thấy mã nhân viên", err)
+		}
+		return errors.NewAppError(errors.ErrInternalServer, "Lỗi kiểm tra nhân viên", err)
+	}
+
+	template := &entity.EmployeeFaceTemplate{
+		ID:           uuid.New(),
+		EmployeeCode: req.EmployeeCode,
+		FaceData:     req.FaceData,
+	}
+
+	if errCreate := s.repo.CreateFaceTemplate(ctx, template); errCreate != nil {
+		return errors.NewAppError(errors.ErrInternalServer, "Không thể lưu khuôn mặt vào cơ sở dữ liệu", errCreate)
+	}
+	return nil
+}
+
+func (s *TimekeepingServiceImpl) GetFaceTemplates(ctx context.Context) ([]dto.FaceTemplateResponse, *errors.AppError) {
+	list, err := s.repo.GetFaceTemplates(ctx)
+	if err != nil {
+		return nil, errors.NewAppError(errors.ErrInternalServer, "Lỗi tải danh sách khuôn mặt", err)
+	}
+
+	var allProfiles []payrollEntity.UserProfile
+	query := `SELECT code, full_name FROM user_profiles`
+	_ = s.payrollRepo.DB.SQLx().SelectContext(ctx, &allProfiles, query)
+	nameMap := make(map[string]string)
+	for _, p := range allProfiles {
+		nameMap[p.Code] = p.FullName
+	}
+
+	var responses []dto.FaceTemplateResponse
+	for _, t := range list {
+		name := nameMap[t.EmployeeCode]
+		if name == "" {
+			name = t.EmployeeCode
+		}
+		responses = append(responses, dto.FaceTemplateResponse{
+			EmployeeCode: t.EmployeeCode,
+			EmployeeName: name,
+			FaceData:     t.FaceData,
+			CreatedAt:    t.CreatedAt,
+		})
+	}
+	return responses, nil
+}
+
+func (s *TimekeepingServiceImpl) DeleteFaceTemplate(ctx context.Context, code string) *errors.AppError {
+	if err := s.repo.DeleteFaceTemplate(ctx, code); err != nil {
+		return errors.NewAppError(errors.ErrInternalServer, "Không thể xóa khuôn mặt", err)
+	}
+	return nil
+}

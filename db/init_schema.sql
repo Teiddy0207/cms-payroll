@@ -348,6 +348,14 @@ CREATE TABLE IF NOT EXISTS attendance_logs (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- 28. Employee Face Templates
+CREATE TABLE IF NOT EXISTS employee_face_templates (
+    id UUID PRIMARY KEY,
+    employee_code VARCHAR(100) NOT NULL UNIQUE,
+    face_data TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Default system admin user seeding (required for standard seeds to refer to)
 INSERT INTO job_descriptions (id, code, name, description)
 VALUES ('00000000-0000-0000-0000-000000000000', 'ADMIN_POS', 'Administrator', 'System administrator position')

@@ -161,7 +161,7 @@ export function TimesheetsPage() {
 						style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
 					/>
 					<button className="btn btn-primary" onClick={handleOpenCalc}>
-						⚡ Tính công ngày
+						Tinh cong ngay
 					</button>
 				</div>
 			</div>
@@ -211,7 +211,7 @@ export function TimesheetsPage() {
 					<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
 						<button type="button" className="btn btn-secondary" onClick={() => setCalcModalOpen(false)}>Huỷ</button>
 						<button type="submit" className="btn btn-primary" disabled={loading}>
-							{loading ? '🔄 Đang tính...' : 'Kích hoạt tính công'}
+							{loading ? 'Dang tinh...' : 'Kich hoat tinh cong'}
 						</button>
 					</div>
 				</form>

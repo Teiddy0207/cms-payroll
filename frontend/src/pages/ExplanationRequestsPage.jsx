@@ -152,7 +152,7 @@ export function ExplanationRequestsPage() {
 					</p>
 				</div>
 				<button className="btn btn-primary" onClick={handleOpenCreate}>
-					➕ Tạo đơn giải trình
+					Tao don giai trinh
 				</button>
 			</div>
 
