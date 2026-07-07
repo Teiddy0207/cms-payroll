@@ -4,10 +4,13 @@ import (
 	"cal-salary/core/constants"
 	"cal-salary/core/controller"
 	"cal-salary/core/errors"
+	"cal-salary/core/params"
 	"cal-salary/core/utils"
 	"cal-salary/modules/timekeeping/dto"
 	"cal-salary/modules/timekeeping/service"
 	"net/http"
+	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -58,12 +61,16 @@ func (ctrl *TimekeepingController) GetDailyAttendanceSheets(c echo.Context) erro
 		return ctrl.Unauthorized(errors.ErrUnauthorized, "Yêu cầu đăng nhập", nil)
 	}
 
+	qp := params.NewQueryParams(c)
+
 	period := c.QueryParam("period")
 	if period == "" {
-		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Thiếu tham số chu kỳ period (YYYY-MM)", nil)
+		now := time.Now()
+		period = fmt.Sprintf("%d-%02d", now.Year(), now.Month())
 	}
+	qp.Filters["period"] = period
 
-	resp, appErr := ctrl.Service.GetDailyAttendanceSheets(ctx, claims.UserID, period)
+	resp, appErr := ctrl.Service.GetDailyAttendanceSheets(ctx, claims.UserID, *qp)
 	if appErr != nil {
 		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
 	}

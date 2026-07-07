@@ -146,6 +146,10 @@ func initServer() (*Server, error) {
 		logger.Warn("Failed to seed permissions", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
+	if err := seed.SeedRolesAndAdminUserRole(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed roles and admin user role", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
 
 	logger.Info("Server initializing",
 		"environment", environment,

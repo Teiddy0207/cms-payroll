@@ -160,8 +160,8 @@ export const calculatorAPI = {
 export const timekeepingAPI = {
   checkin: (data) =>
     client.post('/private/timekeeping/checkin', data),
-  getSheets: (period) =>
-    client.get('/private/timekeeping/sheets', { params: { period } }),
+  getSheets: (params) =>
+    client.get('/private/timekeeping/sheets', { params }),
   calculateSheets: (data) =>
     client.post('/private/timekeeping/sheets/calculate', data),
   getExplanations: () =>

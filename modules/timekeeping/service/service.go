@@ -2,6 +2,7 @@ package service
 
 import (
 	"cal-salary/core/errors"
+	"cal-salary/core/params"
 	"cal-salary/modules/timekeeping/dto"
 	"context"
 
@@ -10,7 +11,7 @@ import (
 
 type TimekeepingService interface {
 	ProcessCheckIn(ctx context.Context, req *dto.CheckinRequest) (*dto.CheckinResponse, *errors.AppError)
-	GetDailyAttendanceSheets(ctx context.Context, userID uuid.UUID, period string) ([]dto.DailyAttendanceResponse, *errors.AppError)
+	GetDailyAttendanceSheets(ctx context.Context, userID uuid.UUID, qp params.QueryParams) (*dto.PaginatedDailyAttendanceResponse, *errors.AppError)
 	CalculateTimesheets(ctx context.Context, req *dto.CalculateTimesheetRequest) *errors.AppError
 
 	CreateExplanationRequest(ctx context.Context, userID uuid.UUID, req *dto.CreateExplanationRequest) (*dto.ExplanationRequestResponse, *errors.AppError)

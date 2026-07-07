@@ -2,9 +2,12 @@ package repository
 
 import (
 	"cal-salary/core/database"
+	"cal-salary/core/params"
 	"cal-salary/modules/timekeeping/entity"
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -79,33 +82,87 @@ func (r *TimekeepingRepositoryImpl) UpsertDailyAttendanceSheet(ctx context.Conte
 	return err
 }
 
-func (r *TimekeepingRepositoryImpl) GetDailyAttendanceSheets(ctx context.Context, employeeID *uuid.UUID, start, end time.Time) ([]entity.DailyAttendanceSheet, error) {
-	var list []entity.DailyAttendanceSheet
-	var err error
-	if employeeID == nil {
-		query := `
-			SELECT id, employee_id, date, check_in, check_out, actual_work_day, ot_hours, status, created_at, updated_at
-			FROM daily_attendance_sheets
-			WHERE date >= $1 AND date <= $2
-			ORDER BY date ASC
-		`
-		err = r.DB.SQLx().SelectContext(ctx, &list, query, start, end)
-	} else {
-		query := `
-			SELECT id, employee_id, date, check_in, check_out, actual_work_day, ot_hours, status, created_at, updated_at
-			FROM daily_attendance_sheets
-			WHERE employee_id = $1 AND date >= $2 AND date <= $3
-			ORDER BY date ASC
-		`
-		err = r.DB.SQLx().SelectContext(ctx, &list, query, *employeeID, start, end)
+func (r *TimekeepingRepositoryImpl) GetDailyAttendanceSheets(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID, start, end time.Time, qp params.QueryParams) ([]entity.DailyAttendanceSheet, int, error) {
+	offset := (qp.PageNumber - 1) * qp.PageSize
+	if offset < 0 {
+		offset = 0
 	}
+	pageSize := qp.PageSize
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	baseQuery := `
+		FROM daily_attendance_sheets sh
+		JOIN user_profiles u ON sh.employee_id = u.id
+	`
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
+
+	conditions = append(conditions, fmt.Sprintf("sh.date >= $%d AND sh.date <= $%d", argIndex, argIndex+1))
+	args = append(args, start, end)
+	argIndex += 2
+
+	if employeeID != nil {
+		conditions = append(conditions, fmt.Sprintf("sh.employee_id = $%d", argIndex))
+		args = append(args, *employeeID)
+		argIndex++
+	}
+
+	if departmentID != nil {
+		conditions = append(conditions, fmt.Sprintf("u.department_id = $%d", argIndex))
+		args = append(args, *departmentID)
+		argIndex++
+	}
+
+	if qp.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("(u.full_name ILIKE $%d OR u.code ILIKE $%d)", argIndex, argIndex))
+		args = append(args, "%"+qp.Search+"%")
+		argIndex++
+	}
+
+	if status, ok := qp.Filters["status"]; ok && status != "" && status != "ALL" {
+		conditions = append(conditions, fmt.Sprintf("sh.status = $%d", argIndex))
+		args = append(args, status)
+		argIndex++
+	}
+
+	if dateStr, ok := qp.Filters["date"]; ok && dateStr != "" {
+		conditions = append(conditions, fmt.Sprintf("sh.date = $%d", argIndex))
+		args = append(args, dateStr)
+		argIndex++
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	countQuery := "SELECT COUNT(*) " + baseQuery + whereClause
+	var totalItems int
+	err := r.DB.SQLx().GetContext(ctx, &totalItems, countQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	dataQuery := `
+		SELECT sh.id, sh.employee_id, sh.date, sh.check_in, sh.check_out, sh.actual_work_day, sh.ot_hours, sh.status, sh.created_at, sh.updated_at
+	` + baseQuery + whereClause + ` ORDER BY sh.date ASC, u.full_name ASC`
+
+	dataQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, pageSize, offset)
+
+	var list []entity.DailyAttendanceSheet
+	err = r.DB.SQLx().SelectContext(ctx, &list, dataQuery, args...)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return []entity.DailyAttendanceSheet{}, nil
+			return []entity.DailyAttendanceSheet{}, 0, nil
 		}
-		return nil, err
+		return nil, 0, err
 	}
-	return list, nil
+
+	return list, totalItems, nil
 }
 
 func (r *TimekeepingRepositoryImpl) CreateExplanationRequest(ctx context.Context, req *entity.ExplanationRequest) error {

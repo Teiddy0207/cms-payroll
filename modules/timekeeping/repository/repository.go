@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"cal-salary/core/params"
 	"cal-salary/modules/timekeeping/entity"
 	"context"
 	"time"
@@ -14,7 +15,7 @@ type TimekeepingRepository interface {
 	GetAttendanceLogsForCalculation(ctx context.Context, start, end time.Time) ([]entity.AttendanceLog, error)
 
 	UpsertDailyAttendanceSheet(ctx context.Context, sheet *entity.DailyAttendanceSheet) error
-	GetDailyAttendanceSheets(ctx context.Context, employeeID *uuid.UUID, start, end time.Time) ([]entity.DailyAttendanceSheet, error)
+	GetDailyAttendanceSheets(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID, start, end time.Time, qp params.QueryParams) ([]entity.DailyAttendanceSheet, int, error)
 
 	CreateExplanationRequest(ctx context.Context, req *entity.ExplanationRequest) error
 	GetExplanationRequestByID(ctx context.Context, id uuid.UUID) (*entity.ExplanationRequest, error)

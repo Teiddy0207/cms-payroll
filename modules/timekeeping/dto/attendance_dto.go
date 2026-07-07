@@ -1,6 +1,9 @@
 package dto
 
-import "time"
+import (
+	coreDto "cal-salary/core/dto"
+	"time"
+)
 
 type DailyAttendanceResponse struct {
 	ID             string     `json:"id"`
@@ -15,6 +18,8 @@ type DailyAttendanceResponse struct {
 	OTHours        float64    `json:"ot_hours"`
 	Status         string     `json:"status"`
 }
+
+type PaginatedDailyAttendanceResponse = coreDto.Pagination[DailyAttendanceResponse]
 
 type CalculateTimesheetRequest struct {
 	StartDate string `json:"start_date"`

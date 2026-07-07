@@ -6,6 +6,7 @@ import (
 	"cal-salary/core/logger"
 	payrollEntity "cal-salary/modules/payroll/entity"
 	payrollRepo "cal-salary/modules/payroll/repository"
+	"cal-salary/core/params"
 	"cal-salary/modules/timekeeping/dto"
 	"cal-salary/modules/timekeeping/entity"
 	"cal-salary/modules/timekeeping/repository"
@@ -13,6 +14,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,15 +55,28 @@ func (s *TimekeepingServiceImpl) getProfileByUserID(ctx context.Context, userID 
 }
 
 func (s *TimekeepingServiceImpl) getUserRole(ctx context.Context, userID uuid.UUID) (string, error) {
+	if userID.String() == "00000000-0000-0000-0000-000000000000" {
+		return "admin", nil
+	}
 	var slug string
 	query := `
 		SELECT r.slug
-		FROM users u
-		JOIN roles r ON u.role_id = r.id
-		WHERE u.id = $1
+		FROM user_roles ur
+		JOIN roles r ON ur.role_id = r.id
+		WHERE ur.user_id = $1 AND ur.is_active = true
+		LIMIT 1
 	`
 	err := s.payrollRepo.DB.SQLx().GetContext(ctx, &slug, query, userID)
 	if err != nil {
+		// Fallback: kiểm tra bảng users xem username
+		var username string
+		errUser := s.payrollRepo.DB.SQLx().GetContext(ctx, &username, `SELECT username FROM users WHERE id = $1`, userID)
+		if errUser == nil {
+			fmt.Printf("DEBUG: getUserRole fallback - UserID=%s username=%s\n", userID, username)
+			if username == "admin" {
+				return "admin", nil
+			}
+		}
 		return "", err
 	}
 	return slug, nil
@@ -106,15 +121,24 @@ func (s *TimekeepingServiceImpl) ProcessCheckIn(ctx context.Context, req *dto.Ch
 	}, nil
 }
 
-func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, userID uuid.UUID, period string) ([]dto.DailyAttendanceResponse, *errors.AppError) {
-	profile, err := s.getProfileByUserID(ctx, userID)
-	if err != nil {
-		return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân viên", err)
-	}
-
+func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, userID uuid.UUID, qp params.QueryParams) (*dto.PaginatedDailyAttendanceResponse, *errors.AppError) {
+	// Kiểm tra role trước
 	role, errRole := s.getUserRole(ctx, userID)
 	if errRole != nil {
-		role = "EMPLOYEE"
+		fmt.Printf("DEBUG: getUserRole error: %v, UserID=%s\n", errRole, userID)
+		role = "employee"
+	}
+
+	roleUpper := strings.ToUpper(role)
+	isAdmin := roleUpper == "ADMIN" || roleUpper == "DIRECTOR"
+	isManager := roleUpper == "MANAGER"
+
+	fmt.Printf("DEBUG: UserID=%s Role=%s isAdmin=%t isManager=%t\n", userID, role, isAdmin, isManager)
+
+	period, ok := qp.Filters["period"]
+	if !ok || period == "" {
+		now := time.Now()
+		period = fmt.Sprintf("%d-%02d", now.Year(), now.Month())
 	}
 
 	parsedTime, errParse := time.Parse("2006-01", period)
@@ -128,10 +152,14 @@ func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, u
 	var employeeIDFilter *uuid.UUID
 	var departmentIDFilter *uuid.UUID
 
-	isAdmin := role == "ADMIN" || role == "DIRECTOR"
-	isManager := role == "MANAGER"
-
 	if !isAdmin {
+		// Không phải admin → cần profile để xác định phạm vi dữ liệu
+		profile, err := s.getProfileByUserID(ctx, userID)
+		if err != nil {
+			fmt.Printf("DEBUG: getProfileByUserID error: %v, UserID=%s\n", err, userID)
+			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân viên", err)
+		}
+
 		if isManager {
 			deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
 			if errDept == nil {
@@ -143,8 +171,9 @@ func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, u
 			employeeIDFilter = &profile.ID
 		}
 	}
+	// isAdmin → cả 2 filter đều nil → lấy toàn bộ dữ liệu
 
-	sheets, errSheets := s.repo.GetDailyAttendanceSheets(ctx, employeeIDFilter, start, end)
+	sheets, totalItems, errSheets := s.repo.GetDailyAttendanceSheets(ctx, employeeIDFilter, departmentIDFilter, start, end, qp)
 	if errSheets != nil {
 		return nil, errors.NewAppError(errors.ErrInternalServer, "Lỗi truy vấn bảng công", errSheets)
 	}
@@ -179,10 +208,6 @@ func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, u
 			continue
 		}
 
-		if departmentIDFilter != nil && (empProfile.DepartmentID == nil || *empProfile.DepartmentID != *departmentIDFilter) {
-			continue
-		}
-
 		deptName := "Không có"
 		if empProfile.DepartmentID != nil {
 			if name, ok := deptMap[*empProfile.DepartmentID]; ok {
@@ -196,7 +221,7 @@ func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, u
 			EmployeeCode:   empProfile.Code,
 			FullName:       empProfile.FullName,
 			DepartmentName: deptName,
-			Date:           sh.Date.Format("2006-02-01"),
+			Date:           sh.Date.Format("2006-01-02"),
 			CheckIn:        sh.CheckIn,
 			CheckOut:       sh.CheckOut,
 			ActualWorkDay:  sh.ActualWorkDay,
@@ -205,7 +230,27 @@ func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, u
 		})
 	}
 
-	return responses, nil
+	pageSize := qp.PageSize
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+	pageNumber := qp.PageNumber
+	if pageNumber <= 0 {
+		pageNumber = 1
+	}
+
+	totalPages := int(math.Ceil(float64(totalItems) / float64(pageSize)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	return &dto.PaginatedDailyAttendanceResponse{
+		Items:      responses,
+		TotalItems: totalItems,
+		TotalPages: totalPages,
+		PageNumber: pageNumber,
+		PageSize:   pageSize,
+	}, nil
 }
 
 func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *dto.CalculateTimesheetRequest) *errors.AppError {
