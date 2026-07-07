@@ -353,6 +353,7 @@ CREATE TABLE IF NOT EXISTS employee_face_templates (
     id UUID PRIMARY KEY,
     employee_code VARCHAR(100) NOT NULL UNIQUE,
     face_data TEXT NOT NULL,
+    face_embedding jsonb,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 

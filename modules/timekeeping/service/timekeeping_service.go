@@ -1,19 +1,22 @@
 package service
 
 import (
+	"bytes"
 	"cal-salary/core/cache"
 	"cal-salary/core/errors"
 	"cal-salary/core/logger"
+	"cal-salary/core/params"
 	payrollEntity "cal-salary/modules/payroll/entity"
 	payrollRepo "cal-salary/modules/payroll/repository"
-	"cal-salary/core/params"
 	"cal-salary/modules/timekeeping/dto"
 	"cal-salary/modules/timekeeping/entity"
 	"cal-salary/modules/timekeeping/repository"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"strings"
 	"time"
 
@@ -82,8 +85,99 @@ func (s *TimekeepingServiceImpl) getUserRole(ctx context.Context, userID uuid.UU
 	return slug, nil
 }
 
+func getFaceEmbeddingFromPython(faceData string) ([]float64, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	requestBody, err := json.Marshal(map[string]string{
+		"image": faceData,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Post("http://127.0.0.1:5050/embed", "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errData map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errData)
+		if msg, ok := errData["message"].(string); ok {
+			return nil, fmt.Errorf("python service: %s", msg)
+		}
+		return nil, fmt.Errorf("python service status %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Status    string    `json:"status"`
+		Embedding []float64 `json:"embedding"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Embedding, nil
+}
+
+func euclideanDistance(a, b []float64) float64 {
+	if len(a) != len(b) {
+		return 999.0
+	}
+	var sum float64
+	for i := range a {
+		diff := a[i] - b[i]
+		sum += diff * diff
+	}
+	return math.Sqrt(sum)
+}
+
 func (s *TimekeepingServiceImpl) ProcessCheckIn(ctx context.Context, req *dto.CheckinRequest) (*dto.CheckinResponse, *errors.AppError) {
-	_, err := s.getProfileByCode(ctx, req.EmployeeCode)
+	var matchedEmployeeCode string
+	var matchedFullName string
+
+	if req.FaceData != "" {
+		liveEmbedding, errEmbed := getFaceEmbeddingFromPython(req.FaceData)
+		if errEmbed != nil {
+			return nil, errors.NewAppError(errors.ErrInternalServer, fmt.Sprintf("Không nhận dạng được khuôn mặt: %v", errEmbed), errEmbed)
+		}
+
+		templates, errGet := s.repo.GetFaceTemplates(ctx)
+		if errGet != nil {
+			return nil, errors.NewAppError(errors.ErrInternalServer, "Lỗi truy vấn dữ liệu khuôn mặt", errGet)
+		}
+
+		var bestMatch *entity.EmployeeFaceTemplate
+		minDist := 0.6
+
+		for i := range templates {
+			t := &templates[i]
+			if t.FaceEmbedding == nil {
+				continue
+			}
+			var templateEmbedding []float64
+			errUnmarshal := json.Unmarshal([]byte(*t.FaceEmbedding), &templateEmbedding)
+			if errUnmarshal != nil {
+				continue
+			}
+
+			dist := euclideanDistance(liveEmbedding, templateEmbedding)
+			if dist < minDist {
+				minDist = dist
+				bestMatch = t
+			}
+		}
+
+		if bestMatch == nil {
+			return nil, errors.NewAppError(errors.ErrForbidden, "Không tìm thấy khuôn mặt khớp trong cơ sở dữ liệu", nil)
+		}
+
+		matchedEmployeeCode = bestMatch.EmployeeCode
+		req.EmployeeCode = matchedEmployeeCode
+	}
+
+	profile, err := s.getProfileByCode(ctx, req.EmployeeCode)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy mã nhân viên", err)
@@ -91,13 +185,18 @@ func (s *TimekeepingServiceImpl) ProcessCheckIn(ctx context.Context, req *dto.Ch
 		return nil, errors.NewAppError(errors.ErrInternalServer, "Lỗi kiểm tra nhân viên", err)
 	}
 
+	matchedFullName = profile.FullName
+	matchedEmployeeCode = profile.Code
+
 	redisKey := fmt.Sprintf("bluenet_3ps_backend:checkin:last:%s", req.EmployeeCode)
 	exists, errExists := s.cache.GetClient().Exists(ctx, redisKey).Result()
 
 	if errExists == nil && exists > 0 {
 		return &dto.CheckinResponse{
-			Message:   "Check-in thành công (Lọc trùng lặp 5 phút)",
-			Timestamp: req.Timestamp,
+			Message:      "Check-in thành công (Lọc trùng lặp 5 phút)",
+			Timestamp:    req.Timestamp,
+			EmployeeCode: matchedEmployeeCode,
+			FullName:     matchedFullName,
 		}, nil
 	}
 
@@ -116,8 +215,10 @@ func (s *TimekeepingServiceImpl) ProcessCheckIn(ctx context.Context, req *dto.Ch
 	_ = s.cache.GetClient().Set(ctx, redisKey, "1", 5*time.Minute).Err()
 
 	return &dto.CheckinResponse{
-		Message:   "Check-in khuôn mặt thành công!",
-		Timestamp: req.Timestamp,
+		Message:      "Check-in khuôn mặt thành công!",
+		Timestamp:    req.Timestamp,
+		EmployeeCode: matchedEmployeeCode,
+		FullName:     matchedFullName,
 	}, nil
 }
 
@@ -710,10 +811,23 @@ func (s *TimekeepingServiceImpl) RegisterFaceTemplate(ctx context.Context, req *
 		return errors.NewAppError(errors.ErrInternalServer, "Lỗi kiểm tra nhân viên", err)
 	}
 
+	embedding, errEmbed := getFaceEmbeddingFromPython(req.FaceData)
+	if errEmbed != nil {
+		return errors.NewAppError(errors.ErrInternalServer, fmt.Sprintf("Không thể trích xuất đặc trưng khuôn mặt từ AI: %v", errEmbed), errEmbed)
+	}
+
+	embedBytes, errMarshal := json.Marshal(embedding)
+	var embedStr *string
+	if errMarshal == nil {
+		str := string(embedBytes)
+		embedStr = &str
+	}
+
 	template := &entity.EmployeeFaceTemplate{
-		ID:           uuid.New(),
-		EmployeeCode: req.EmployeeCode,
-		FaceData:     req.FaceData,
+		ID:            uuid.New(),
+		EmployeeCode:  req.EmployeeCode,
+		FaceData:      req.FaceData,
+		FaceEmbedding: embedStr,
 	}
 
 	if errCreate := s.repo.CreateFaceTemplate(ctx, template); errCreate != nil {

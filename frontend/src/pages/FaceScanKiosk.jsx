@@ -10,7 +10,12 @@ const computeImageHash = (source) => {
 			canvas.width = 8;
 			canvas.height = 8;
 			const ctx = canvas.getContext('2d');
-			ctx.drawImage(img, 0, 0, 8, 8);
+			const w = img.width;
+			const h = img.height;
+			const size = Math.min(w, h) * 0.5;
+			const sx = (w - size) / 2;
+			const sy = (h - size) / 2;
+			ctx.drawImage(img, sx, sy, size, size, 0, 0, 8, 8);
 			const imgData = ctx.getImageData(0, 0, 8, 8);
 			const pixels = imgData.data;
 			let sum = 0;
@@ -36,7 +41,12 @@ const computeVideoHash = (video) => {
 	canvas.width = 8;
 	canvas.height = 8;
 	const ctx = canvas.getContext('2d');
-	ctx.drawImage(video, 0, 0, 8, 8);
+	const w = video.videoWidth || 640;
+	const h = video.videoHeight || 480;
+	const size = Math.min(w, h) * 0.5;
+	const sx = (w - size) / 2;
+	const sy = (h - size) / 2;
+	ctx.drawImage(video, sx, sy, size, size, 0, 0, 8, 8);
 	const imgData = ctx.getImageData(0, 0, 8, 8);
 	const pixels = imgData.data;
 	let sum = 0;
@@ -201,11 +211,6 @@ export function FaceScanKiosk() {
 	};
 
 	const handleAICheckin = () => {
-		if (registeredFaces.length === 0) {
-			toast.error('Chua co du lieu', 'Khong tim thay khuon mat nao duoc dang ky. Vui long qua tab Dang Ky truoc.');
-			return;
-		}
-
 		if (!videoRef.current || !cameraStream) {
 			toast.error('Loi', 'Khong tim thay camera hoac luong camera chua san sang');
 			return;
@@ -217,40 +222,28 @@ export function FaceScanKiosk() {
 		setTimeout(async () => {
 			try {
 				const video = videoRef.current;
-				const liveHash = computeVideoHash(video);
-
-				let bestMatch = null;
-				let minDist = 65;
-				for (const face of registeredFaces) {
-					if (!face.hash) continue;
-					const dist = getHammingDistance(liveHash, face.hash);
-					if (dist < minDist) {
-						minDist = dist;
-						bestMatch = face;
-					}
-				}
-
-				if (!bestMatch) {
-					toast.error('Loi', 'Khong the nhan dang duoc khuon mat nao khop');
-					setScanning(false);
-					return;
-				}
-
-				const confidence = Math.round(((64 - minDist) / 64) * 100);
+				const canvas = document.createElement('canvas');
+				canvas.width = video.videoWidth || 640;
+				canvas.height = video.videoHeight || 480;
+				const ctx = canvas.getContext('2d');
+				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+				const dataUrl = canvas.toDataURL('image/jpeg');
 
 				const payload = {
-					employee_code: bestMatch.employee_code,
+					face_data: dataUrl,
 					timestamp: new Date().toISOString(),
 					location_gps: "21.0285,105.7823",
 					device_id: "KIOSK-GATE-01"
 				};
 
 				const res = await timekeepingAPI.checkin(payload);
+				const data = res.data?.data;
+
 				setScanSuccess({
-					name: bestMatch.employee_name,
-					code: bestMatch.employee_code,
-					photo: bestMatch.face_data,
-					confidence: confidence,
+					name: data?.full_name || 'Nhan vien',
+					code: data?.employee_code || '',
+					photo: dataUrl,
+					confidence: 100,
 					time: new Date().toLocaleTimeString('vi-VN')
 				});
 				toast.success('Nhan dang AI thanh cong', res.data?.message || 'Da ghi nhan cham cong');
