@@ -346,11 +346,7 @@ func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto
 		s.cache.GetClient().HSet(bgCtx, jobKey, "total_employees", total)
 
 		formulas, _ := s.repo.GetPayrollFormulasByPeriod(bgCtx, start, end)
-
-		formulaMap := make(map[string]string)
-		for _, f := range formulas {
-			formulaMap[f.VariableName] = f.Expression
-		}
+		sortedFormulas := sortFormulas(formulas)
 
 		numWorkers := 5
 		if total < numWorkers {
@@ -383,7 +379,7 @@ func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto
 						continue
 					}
 
-					calcItemErr := s.calculateAndSaveEmployee(bgCtx, periodRecord.ID, p, req.Period, formulaMap)
+					calcItemErr := s.calculateAndSaveEmployee(bgCtx, periodRecord.ID, p, req.Period, sortedFormulas)
 					s.cache.Del(bgCtx, empLockKey)
 
 					if calcItemErr != nil {
@@ -405,7 +401,7 @@ func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto
 	return jobID, nil
 }
 
-func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID uuid.UUID, profile entity.UserProfile, period string, formulaMap map[string]string) error {
+func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID uuid.UUID, profile entity.UserProfile, period string, sortedFormulas []entity.PayrollFormula) error {
 	preview, err := s.PreviewSalary(ctx, profile.ID, period)
 	if err != nil {
 		return err
@@ -428,45 +424,62 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 		"NET_SALARY":   net,
 	}
 
-	if exprStr, ok := formulaMap["GROSS_SALARY"]; ok {
-		program, err := expr.Compile(exprStr, expr.Env(env))
-		if err == nil {
-			output, err := expr.Run(program, env)
-			if err == nil {
-				if val, ok := convertToFloat64(output); ok {
-					gross = val
-					env["GROSS_SALARY"] = val
-				}
-			}
+	hasTaxFormula := false
+	hasNetFormula := false
+	for _, f := range sortedFormulas {
+		if f.VariableName == "TAX" {
+			hasTaxFormula = true
+		} else if f.VariableName == "NET_SALARY" {
+			hasNetFormula = true
 		}
 	}
 
-	env["GROSS_SALARY"] = gross
-
-	if exprStr, ok := formulaMap["TAX"]; ok {
-		program, err := expr.Compile(exprStr, expr.Env(env))
-		if err == nil {
-			output, err := expr.Run(program, env)
-			if err == nil {
-				if val, ok := convertToFloat64(output); ok {
-					tax = val
-					env["TAX"] = val
-				}
-			}
-		}
+	details := []entity.PayrollRecordDetail{
+		{Component: "P1", Description: "Lương vị trí P1", Source: "POSITION", Amount: p1},
+		{Component: "P2", Description: "Lương năng lực P2", Source: "PERSONAL", Amount: p2},
+		{Component: "P3", Description: "Lương hiệu quả P3", Source: "FORMULA", Amount: p3},
 	}
 
-	env["TAX"] = tax
-
-	if exprStr, ok := formulaMap["NET_SALARY"]; ok {
-		program, err := expr.Compile(exprStr, expr.Env(env))
-		if err == nil {
-			output, err := expr.Run(program, env)
-			if err == nil {
-				if val, ok := convertToFloat64(output); ok {
-					net = val
-					env["NET_SALARY"] = val
+	for _, f := range sortedFormulas {
+		program, err := expr.Compile(f.Expression, expr.Env(env))
+		if err != nil {
+			continue
+		}
+		output, err := expr.Run(program, env)
+		if err != nil {
+			continue
+		}
+		if val, ok := convertToFloat64(output); ok {
+			env[f.VariableName] = val
+			if f.VariableName == "GROSS_SALARY" {
+				gross = val
+				if !hasTaxFormula {
+					tax = gross * 0.1
+					env["TAX"] = tax
 				}
+				if !hasNetFormula {
+					net = gross - tax
+					env["NET_SALARY"] = net
+				}
+			} else if f.VariableName == "TAX" {
+				tax = val
+				if !hasNetFormula {
+					net = gross - tax
+					env["NET_SALARY"] = net
+				}
+			} else if f.VariableName == "NET_SALARY" {
+				net = val
+			} else {
+				desc := f.Description
+				if desc == "" {
+					desc = "Hệ số " + f.VariableName
+				}
+				details = append(details, entity.PayrollRecordDetail{
+					Component:   f.VariableName,
+					Description: desc,
+					Source:      "FORMULA",
+					Amount:      val,
+				})
 			}
 		}
 	}
@@ -483,14 +496,11 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 		Status:      "DRAFT",
 	}
 
-	details := []entity.PayrollRecordDetail{
-		{Component: "P1", Description: "Lương vị trí P1", Source: "POSITION", Amount: p1},
-		{Component: "P2", Description: "Lương năng lực P2", Source: "PERSONAL", Amount: p2},
-		{Component: "P3", Description: "Lương hiệu quả P3", Source: "FORMULA", Amount: p3},
-		{Component: "GROSS", Description: "Tổng thu nhập chịu thuế", Source: "FORMULA", Amount: gross},
-		{Component: "TAX", Description: "Thuế thu nhập cá nhân", Source: "FORMULA", Amount: tax},
-		{Component: "NET", Description: "Thực nhận", Source: "FORMULA", Amount: net},
-	}
+	details = append(details,
+		entity.PayrollRecordDetail{Component: "GROSS", Description: "Tổng thu nhập chịu thuế", Source: "FORMULA", Amount: gross},
+		entity.PayrollRecordDetail{Component: "TAX", Description: "Thuế thu nhập cá nhân", Source: "FORMULA", Amount: tax},
+		entity.PayrollRecordDetail{Component: "NET", Description: "Thực nhận", Source: "FORMULA", Amount: net},
+	)
 
 	return s.repo.UpsertPayrollRecord(ctx, record, details)
 }
@@ -549,4 +559,38 @@ func (s *PayrollService) GetSavedPayrollRecords(ctx context.Context, period stri
 	}
 
 	return items, nil
+}
+
+func sortFormulas(formulas []entity.PayrollFormula) []entity.PayrollFormula {
+	var other []entity.PayrollFormula
+	var gross *entity.PayrollFormula
+	var tax *entity.PayrollFormula
+	var net *entity.PayrollFormula
+
+	for i := range formulas {
+		f := formulas[i]
+		switch f.VariableName {
+		case "GROSS_SALARY":
+			gross = &formulas[i]
+		case "TAX":
+			tax = &formulas[i]
+		case "NET_SALARY":
+			net = &formulas[i]
+		default:
+			other = append(other, f)
+		}
+	}
+
+	result := make([]entity.PayrollFormula, 0, len(formulas))
+	result = append(result, other...)
+	if gross != nil {
+		result = append(result, *gross)
+	}
+	if tax != nil {
+		result = append(result, *tax)
+	}
+	if net != nil {
+		result = append(result, *net)
+	}
+	return result
 }

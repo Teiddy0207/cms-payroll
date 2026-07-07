@@ -191,16 +191,17 @@ export function FormulasPage() {
 				<form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					<div className="form-group">
 						<label className="form-label" style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>Tên biến hiển thị <span style={{ color: 'var(--error)' }}>*</span></label>
-						<select
+						<input
+							type="text"
 							className="form-input"
+							placeholder="Ví dụ: GROSS_SALARY, TAX, NET_SALARY, WORKDAY_RATIO"
 							value={formData.variable_name}
-							onChange={e => handleInputChange('variable_name', e.target.value)}
+							onChange={e => handleInputChange('variable_name', e.target.value.toUpperCase().trim())}
 							style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
-						>
-							<option value="GROSS_SALARY">GROSS_SALARY (Tổng thu nhập chịu thuế)</option>
-							<option value="TAX">TAX (Thuế thu nhập cá nhân)</option>
-							<option value="NET_SALARY">NET_SALARY (Thực nhận chuyển khoản)</option>
-						</select>
+						/>
+						<p style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
+							Biến hệ thống: <code>GROSS_SALARY</code>, <code>TAX</code>, <code>NET_SALARY</code>. Hoặc nhập tên biến bất kỳ để tự định nghĩa hệ số/phụ cấp mới.
+						</p>
 					</div>
 
 					<div className="form-group">

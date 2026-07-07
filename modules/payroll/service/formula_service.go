@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func validateFormulaExpression(expression string) error {
+func (s *PayrollService) validateFormulaExpression(ctx context.Context, expression string) error {
 	env := map[string]interface{}{
 		"P1":           0.0,
 		"P2":           0.0,
@@ -20,7 +20,15 @@ func validateFormulaExpression(expression string) error {
 		"TAX":          0.0,
 		"NET_SALARY":   0.0,
 	}
-	_, err := expr.Compile(expression, expr.Env(env))
+
+	formulas, err := s.repo.GetPayrollFormulas(ctx)
+	if err == nil {
+		for _, f := range formulas {
+			env[f.VariableName] = 0.0
+		}
+	}
+
+	_, err = expr.Compile(expression, expr.Env(env))
 	return err
 }
 
@@ -29,7 +37,7 @@ func (s *PayrollService) CreatePayrollFormula(ctx context.Context, req *dto.Crea
 		return nil, errors.NewAppError(errors.ErrInvalidInput, "request is required", nil)
 	}
 
-	if err := validateFormulaExpression(req.Expression); err != nil {
+	if err := s.validateFormulaExpression(ctx, req.Expression); err != nil {
 		return nil, errors.NewAppError(errors.ErrInvalidInput, "Cú pháp công thức không hợp lệ: "+err.Error(), err)
 	}
 
@@ -55,7 +63,7 @@ func (s *PayrollService) UpdatePayrollFormula(ctx context.Context, id uuid.UUID,
 		return errors.NewAppError(errors.ErrInvalidInput, "request is required", nil)
 	}
 
-	if err := validateFormulaExpression(req.Expression); err != nil {
+	if err := s.validateFormulaExpression(ctx, req.Expression); err != nil {
 		return errors.NewAppError(errors.ErrInvalidInput, "Cú pháp công thức không hợp lệ: "+err.Error(), err)
 	}
 
