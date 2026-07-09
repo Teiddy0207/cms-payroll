@@ -22,6 +22,9 @@ type JobPosition struct {
 	Midpoint     float64    `db:"midpoint" json:"midpoint"`
 	MinSalary    float64    `db:"min_salary" json:"min_salary"`
 	MaxSalary    float64    `db:"max_salary" json:"max_salary"`
+	IsBenchmark  bool       `db:"is_benchmark" json:"is_benchmark"`
+	MarketSalary float64    `db:"market_salary" json:"market_salary"`
+	SearchKeyword *string    `db:"search_keyword" json:"search_keyword"`
 	entity.BaseEntity
 }
 type PaginatedJobPositionEntity = entity.Pagination[JobPosition]

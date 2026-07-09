@@ -39,6 +39,9 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	// Job Positions endpoints
 	payrollRoutes.POST("/job-positions", r.PayrollController.CreateJobPosition)
 	payrollRoutes.GET("/job-positions", r.PayrollController.GetJobPositions)
+	payrollRoutes.POST("/job-positions/calculate-k", r.PayrollController.CalculateKAndUpdate)
+	payrollRoutes.POST("/job-positions/:id/fetch-market-salary", r.PayrollController.ScrapeMarketSalary)
+	payrollRoutes.POST("/job-positions/fetch-market-salary", r.PayrollController.ScrapeMarketSalary)
 	payrollRoutes.GET("/job-positions/:id", r.PayrollController.GetJobPositionByID)
 	payrollRoutes.PUT("/job-positions/:id", r.PayrollController.UpdateJobPosition)
 	payrollRoutes.DELETE("/job-positions/:id", r.PayrollController.DeleteJobPosition)

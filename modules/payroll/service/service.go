@@ -34,6 +34,8 @@ type PayrollServiceInterface interface {
 	GetJobPositionByID(ctx context.Context, id uuid.UUID) (*dto.JobPositionResponse, *errors.AppError)
 	UpdateJobPosition(ctx context.Context, id uuid.UUID, req *dto.UpdateJobPositionRequest) *errors.AppError
 	DeleteJobPosition(ctx context.Context, id uuid.UUID) *errors.AppError
+	ScrapeMarketSalary(ctx context.Context, id uuid.UUID, req *dto.ScrapeMarketSalaryRequest) (*dto.ScrapeMarketSalaryResponse, *errors.AppError)
+	CalculateKAndUpdate(ctx context.Context) (*dto.CalculateKResponse, *errors.AppError)
 
 	// User Profiles
 	CreateUserProfile(ctx context.Context, req *dto.CreateUserProfileRequest) (*dto.UserProfileResponse, *errors.AppError)

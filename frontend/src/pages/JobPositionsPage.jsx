@@ -21,6 +21,9 @@ const emptyForm = {
   wc_weight: 0,
   wr_weight: 0,
   salary_spread: 0,
+  is_benchmark: false,
+  market_salary: 0,
+  search_keyword: '',
 };
 
 export function JobPositionsPage() {
@@ -46,6 +49,11 @@ export function JobPositionsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const [kFactor, setKFactor] = useState(4000000);
+  const [kCalculating, setKCalculating] = useState(false);
+  const [scrapingLogs, setScrapingLogs] = useState([]);
+  const [scrapingActive, setScrapingActive] = useState(false);
+  const [scrapedJobs, setScrapedJobs] = useState([]);
+  const [scrapingSource, setScrapingSource] = useState('TopCV');
 
   // Standards Management for selected Position
   const [assignedStandards, setAssignedStandards] = useState([]);
@@ -123,6 +131,9 @@ export function JobPositionsPage() {
       wc_weight: (pos.wc_weight ?? 0) * 100,
       wr_weight: (pos.wr_weight ?? 0) * 100,
       salary_spread: (pos.salary_spread ?? 0) * 100,
+      is_benchmark: pos.is_benchmark || false,
+      market_salary: pos.market_salary ?? 0,
+      search_keyword: pos.search_keyword || '',
     });
     setEditOpen(true);
   };
@@ -158,6 +169,9 @@ export function JobPositionsPage() {
       wc_weight: (parseFloat(form.wc_weight) || 0) / 100,
       wr_weight: (parseFloat(form.wr_weight) || 0) / 100,
       salary_spread: (parseFloat(form.salary_spread) || 0) / 100,
+      is_benchmark: !!form.is_benchmark,
+      market_salary: parseFloat(form.market_salary) || 0,
+      search_keyword: form.search_keyword || '',
     };
   };
 
@@ -194,6 +208,61 @@ export function JobPositionsPage() {
       toast.error('Lỗi', err.response?.data?.message || 'Không thể cập nhật');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCalculateK = async () => {
+    setKCalculating(true);
+    try {
+      const res = await jobPositionsAPI.calculateK();
+      const newK = res.data?.data?.new_k_factor || 4000000;
+      toast.success('Thành công', `Đã tính toán lại hệ số K bằng thuật toán OLS thành công! Hệ số K mới: ${Math.round(newK).toLocaleString('vi-VN')}đ/điểm`);
+      setKFactor(newK);
+      loadPositions(page, search);
+    } catch (err) {
+      toast.error('Lỗi tính toán', err.response?.data?.message || 'Có lỗi xảy ra');
+    } finally {
+      setKCalculating(false);
+    }
+  };
+
+  const handleScrapeMarketSalary = async () => {
+    if (!form.search_keyword) {
+      toast.error('Lỗi', 'Vui lòng nhập từ khóa quét lương tuyển dụng');
+      return;
+    }
+    setScrapingActive(true);
+    setScrapingLogs(['[Hệ thống] Khởi tạo yêu cầu quét dữ liệu...']);
+    setScrapedJobs([]);
+    try {
+      const res = await jobPositionsAPI.scrapeMarketSalary(selected?.id, {
+        source: scrapingSource,
+        keyword: form.search_keyword
+      });
+      
+      const serverLogs = res.data?.data?.logs || [];
+      const averageSalary = res.data?.data?.average_salary || 0;
+      const jobs = res.data?.data?.jobs || [];
+      
+      let currentLogIndex = 0;
+      const interval = setInterval(() => {
+        if (currentLogIndex < serverLogs.length) {
+          setScrapingLogs(prev => [...prev, serverLogs[currentLogIndex]]);
+          currentLogIndex++;
+        } else {
+          clearInterval(interval);
+          setForm(prev => ({
+            ...prev,
+            market_salary: averageSalary
+          }));
+          setScrapedJobs(jobs);
+          toast.success('Quét thành công', `Hệ thống đã tính được lương trung vị thị trường: ${Math.round(averageSalary).toLocaleString('vi-VN')}đ`);
+        }
+      }, 350);
+      
+    } catch (err) {
+      setScrapingLogs(prev => [...prev, '[Lỗi] Không thể kết nối với Scraper API.']);
+      toast.error('Lỗi quét dữ liệu', err.response?.data?.message || 'Có lỗi xảy ra');
     }
   };
 
@@ -246,7 +315,8 @@ export function JobPositionsPage() {
   };
 
   const handleFormChange = (e) => {
-    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+    const { name, type, checked, value } = e.target;
+    setForm((p) => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const columns = [
@@ -258,7 +328,12 @@ export function JobPositionsPage() {
     {
       key: 'name',
       title: 'Tên vị trí',
-      render: (val) => <span className="font-bold">{val}</span>,
+      render: (val, row) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="font-bold">{val}</span>
+          {row.is_benchmark && <Badge color="green">Mấu chốt</Badge>}
+        </div>
+      ),
     },
     {
       key: 'description',
@@ -319,7 +394,37 @@ export function JobPositionsPage() {
           <p className="page-subtitle">Quản lý các chức danh & tiêu chuẩn lương cứng P1 ({total} vị trí)</p>
         </div>
         <button className="btn btn-primary" onClick={openCreate}>
-          + Thêm vị trí
+          Thêm vị trí
+        </button>
+      </div>
+
+      <div style={{
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-md)',
+        padding: '16px 24px',
+        marginBottom: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '20px'
+      }}>
+        <div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Đường cong tiền lương (Salary Curve)</div>
+          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+            Hệ số K hiện tại: <span style={{ color: 'var(--accent)' }}>{Math.round(kFactor).toLocaleString('vi-VN')}đ</span> / điểm giá trị
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Được sử dụng làm đơn giá tính lương trung vị (Midpoint = Job Score x K). Hệ số K được tự động tối ưu hóa qua hồi quy OLS từ các vị trí mấu chốt.
+          </div>
+        </div>
+        <button 
+          className="btn btn-secondary" 
+          onClick={handleCalculateK}
+          disabled={kCalculating}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {kCalculating ? 'Đang tính toán...' : 'Tính toán lại hệ số K'}
         </button>
       </div>
 
@@ -342,10 +447,42 @@ export function JobPositionsPage() {
       </div>
 
       {/* Create Modal */}
-      <PositionForm title="Thêm vị trí" onSubmit={handleCreate} isOpen={createOpen} onClose={() => setCreateOpen(false)} form={form} handleFormChange={handleFormChange} saving={saving} departments={departments} kFactor={kFactor} />
+      <PositionForm 
+        title="Thêm vị trí" 
+        onSubmit={handleCreate} 
+        isOpen={createOpen} 
+        onClose={() => setCreateOpen(false)} 
+        form={form} 
+        setForm={setForm}
+        handleFormChange={handleFormChange} 
+        saving={saving} 
+        departments={departments} 
+        kFactor={kFactor} 
+        scrapingActive={scrapingActive}
+        scrapingLogs={scrapingLogs}
+        scrapingSource={scrapingSource}
+        setScrapingSource={setScrapingSource}
+        handleScrapeMarketSalary={handleScrapeMarketSalary}
+      />
 
       {/* Edit Modal */}
-      <PositionForm title="Sửa thông tin vị trí" onSubmit={handleEdit} isOpen={editOpen} onClose={() => setEditOpen(false)} form={form} handleFormChange={handleFormChange} saving={saving} departments={departments} kFactor={kFactor} />
+      <PositionForm 
+        title="Sửa thông tin vị trí" 
+        onSubmit={handleEdit} 
+        isOpen={editOpen} 
+        onClose={() => setEditOpen(false)} 
+        form={form} 
+        setForm={setForm}
+        handleFormChange={handleFormChange} 
+        saving={saving} 
+        departments={departments} 
+        kFactor={kFactor} 
+        scrapingActive={scrapingActive}
+        scrapingLogs={scrapingLogs}
+        scrapingSource={scrapingSource}
+        setScrapingSource={setScrapingSource}
+        handleScrapeMarketSalary={handleScrapeMarketSalary}
+      />
 
       {/* Standards Assignment Modal */}
       <Modal 
@@ -436,7 +573,23 @@ export function JobPositionsPage() {
   );
 }
 
-function PositionForm({ title, onSubmit, isOpen, onClose, form, handleFormChange, saving, departments, kFactor }) {
+function PositionForm({ 
+  title, 
+  onSubmit, 
+  isOpen, 
+  onClose, 
+  form, 
+  setForm,
+  handleFormChange, 
+  saving, 
+  departments, 
+  kFactor,
+  scrapingActive,
+  scrapingLogs,
+  scrapingSource,
+  setScrapingSource,
+  handleScrapeMarketSalary
+}) {
   const eVal = parseFloat(form.e_score) || 0;
   const cVal = parseFloat(form.c_score) || 0;
   const rVal = parseFloat(form.r_score) || 0;
@@ -610,8 +763,97 @@ function PositionForm({ title, onSubmit, isOpen, onClose, form, handleFormChange
         </div>
       </div>
 
-      <div style={{ backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, marginTop: 15, border: '1px solid #e9ecef' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#495057', marginBottom: 8 }}>Xem trước tính toán P1 (Hệ số K: {kFactor.toLocaleString('vi-VN')}đ)</div>
+      <div className="section-title" style={{ fontSize: '13px', fontWeight: 600, marginTop: 20, marginBottom: 12, borderTop: '1px solid #eee', paddingTop: 15, color: '#495057' }}>
+        Định vị Lương thị trường (Market Benchmarking)
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '15px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: 500 }}>
+          <input 
+            type="checkbox" 
+            name="is_benchmark" 
+            checked={!!form.is_benchmark}
+            onChange={(e) => setForm(p => ({ ...p, is_benchmark: e.target.checked }))}
+            style={{ width: '16px', height: '16px' }}
+          />
+          Là vị trí mấu chốt (Benchmark Job)
+        </label>
+
+        {form.is_benchmark && (
+          <div style={{ padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Nguồn khảo sát</label>
+                <select 
+                  className="form-control" 
+                  value={scrapingSource} 
+                  onChange={(e) => setScrapingSource(e.target.value)}
+                >
+                  <option value="TopCV">TopCV.vn</option>
+                  <option value="VietnamWorks">VietnamWorks.com</option>
+                  <option value="ITviec">ITviec.com</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Từ khóa cào dữ liệu</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  name="search_keyword" 
+                  value={form.search_keyword} 
+                  onChange={handleFormChange}
+                  placeholder="VD: Golang Developer"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label className="form-label">Lương thị trường (VND)</label>
+                <input 
+                  type="number" 
+                  className="form-control" 
+                  name="market_salary" 
+                  value={form.market_salary} 
+                  onChange={handleFormChange}
+                  placeholder="Điền tự động hoặc nhập tay"
+                />
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={handleScrapeMarketSalary}
+                style={{ height: '40px', padding: '0 16px' }}
+              >
+                Quét dữ liệu lương
+              </button>
+            </div>
+
+            {scrapingActive && (
+              <div style={{
+                background: '#0f172a',
+                color: '#4ade80',
+                fontFamily: 'monospace',
+                fontSize: '11px',
+                padding: '10px',
+                borderRadius: '6px',
+                maxHeight: '120px',
+                overflowY: 'auto',
+                border: '1px solid #334155',
+                marginTop: '8px'
+              }}>
+                {scrapingLogs.map((log, idx) => (
+                  <div key={idx} style={{ marginBottom: '4px', lineHeight: '1.4' }}>{log}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ backgroundColor: 'var(--bg-secondary)', padding: 12, borderRadius: 8, marginTop: 15, border: '1px solid var(--border-color)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>Xem trước tính toán P1 (Hệ số K: {kFactor.toLocaleString('vi-VN')}đ)</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', fontSize: 12 }}>
           <div>Tổng trọng số: <strong style={{ color: Math.abs(totalWeight - 1) > 0.001 ? '#dc3545' : '#28a745' }}>{(totalWeight * 100).toFixed(0)}%</strong></div>
           <div>Job Score (S): <strong className="font-bold">{jobScore.toFixed(2)}</strong></div>

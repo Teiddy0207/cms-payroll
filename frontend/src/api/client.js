@@ -70,6 +70,10 @@ export const jobPositionsAPI = {
     client.post(`/private/payroll/job-positions/${id}/standards`, data),
   removeStandard: (id, standardId) =>
     client.delete(`/private/payroll/job-positions/${id}/standards/${standardId}`),
+  calculateK: () =>
+    client.post('/private/payroll/job-positions/calculate-k'),
+  scrapeMarketSalary: (id, data) =>
+    client.post(`/private/payroll/job-positions/${id || 'new'}/fetch-market-salary`, data),
 };
 
 // ===================== JOB STANDARDS =====================

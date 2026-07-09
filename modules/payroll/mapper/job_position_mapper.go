@@ -6,6 +6,11 @@ import (
 )
 
 func ToJobPositionEntity(req *dto.CreateJobPositionRequest) *entity.JobPosition {
+	var searchKw *string
+	if req.SearchKeyword != "" {
+		kw := req.SearchKeyword
+		searchKw = &kw
+	}
 	return &entity.JobPosition{
 		Code:         req.Code,
 		Name:         req.Name,
@@ -18,10 +23,17 @@ func ToJobPositionEntity(req *dto.CreateJobPositionRequest) *entity.JobPosition 
 		WCWeight:     req.WCWeight,
 		WRWeight:     req.WRWeight,
 		SalarySpread: req.SalarySpread,
+		IsBenchmark:  req.IsBenchmark,
+		MarketSalary: req.MarketSalary,
+		SearchKeyword: searchKw,
 	}
 }
 
 func ToJobPositionDTO(pos *entity.JobPosition) *dto.JobPositionResponse {
+	var searchKw string
+	if pos.SearchKeyword != nil {
+		searchKw = *pos.SearchKeyword
+	}
 	return &dto.JobPositionResponse{
 		ID:           pos.ID,
 		Code:         pos.Code,
@@ -39,6 +51,9 @@ func ToJobPositionDTO(pos *entity.JobPosition) *dto.JobPositionResponse {
 		Midpoint:     pos.Midpoint,
 		MinSalary:    pos.MinSalary,
 		MaxSalary:    pos.MaxSalary,
+		IsBenchmark:  pos.IsBenchmark,
+		MarketSalary: pos.MarketSalary,
+		SearchKeyword: searchKw,
 		CreatedAt:    pos.CreatedAt,
 		UpdatedAt:    pos.UpdatedAt,
 	}

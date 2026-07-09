@@ -32,6 +32,8 @@ type PayrollRepositoryInterface interface {
 	GetJobPositionByID(ctx context.Context, id uuid.UUID) (*entity.JobPosition, error)
 	UpdateJobPosition(ctx context.Context, id uuid.UUID, pos *entity.JobPosition) error
 	DeleteJobPosition(ctx context.Context, id uuid.UUID) error
+	GetBenchmarkJobPositions(ctx context.Context) ([]entity.JobPosition, error)
+	GetAllJobPositions(ctx context.Context) ([]entity.JobPosition, error)
 
 	// User Profiles
 	CreateUserProfile(ctx context.Context, profile *entity.UserProfile) (*entity.UserProfile, error)
