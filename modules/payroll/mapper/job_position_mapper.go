@@ -11,6 +11,13 @@ func ToJobPositionEntity(req *dto.CreateJobPositionRequest) *entity.JobPosition 
 		Name:         req.Name,
 		Description:  req.Description,
 		DepartmentID: req.DepartmentID,
+		EScore:       req.EScore,
+		CScore:       req.CScore,
+		RScore:       req.RScore,
+		WEWeight:     req.WEWeight,
+		WCWeight:     req.WCWeight,
+		WRWeight:     req.WRWeight,
+		SalarySpread: req.SalarySpread,
 	}
 }
 
@@ -21,6 +28,17 @@ func ToJobPositionDTO(pos *entity.JobPosition) *dto.JobPositionResponse {
 		Name:         pos.Name,
 		Description:  pos.Description,
 		DepartmentID: pos.DepartmentID,
+		EScore:       pos.EScore,
+		CScore:       pos.CScore,
+		RScore:       pos.RScore,
+		WEWeight:     pos.WEWeight,
+		WCWeight:     pos.WCWeight,
+		WRWeight:     pos.WRWeight,
+		SalarySpread: pos.SalarySpread,
+		JobScore:     pos.JobScore,
+		Midpoint:     pos.Midpoint,
+		MinSalary:    pos.MinSalary,
+		MaxSalary:    pos.MaxSalary,
 		CreatedAt:    pos.CreatedAt,
 		UpdatedAt:    pos.UpdatedAt,
 	}

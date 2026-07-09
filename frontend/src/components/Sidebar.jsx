@@ -12,7 +12,7 @@ const navSections = [
   {
     title: 'Lương',
     items: [
-      { path: '/payroll', label: 'Lương tham khảo' },
+      // { path: '/payroll', label: 'Lương tham khảo' },
       { path: '/payroll-run', label: 'Tính lương tháng' },
       { path: '/payroll-formulas', label: 'Công thức lương' }
     ]
@@ -20,7 +20,7 @@ const navSections = [
   {
     title: 'Chấm công',
     items: [
-      // { path: '/face-scan', label: 'Chấm công khuôn mặt' },
+      { path: '/face-scan', label: 'Chấm công khuôn mặt' },
       { path: '/timesheets', label: 'Bảng chấm công' },
       { path: '/attendance-logs', label: 'Nhật ký chấm công' },
       { path: '/explanation-requests', label: 'Giải trình bù công' },
@@ -180,7 +180,7 @@ export function Sidebar() {
         }
 
         .nav-item:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(15, 23, 42, 0.04);
           color: var(--text-primary);
         }
 

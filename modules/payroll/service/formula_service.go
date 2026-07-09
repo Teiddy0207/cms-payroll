@@ -14,11 +14,17 @@ import (
 func (s *PayrollService) validateFormulaExpression(ctx context.Context, expression string) error {
 	env := map[string]interface{}{
 		"P1":           0.0,
+		"p1":           0.0,
 		"P2":           0.0,
+		"p2":           0.0,
 		"P3":           0.0,
+		"p3":           0.0,
 		"GROSS_SALARY": 0.0,
+		"gross_salary": 0.0,
 		"TAX":          0.0,
+		"tax":          0.0,
 		"NET_SALARY":   0.0,
+		"net_salary":   0.0,
 	}
 
 	formulas, err := s.repo.GetPayrollFormulas(ctx)

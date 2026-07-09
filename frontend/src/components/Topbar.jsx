@@ -42,7 +42,7 @@ export function Topbar() {
           left: var(--sidebar-width);
           right: 0;
           height: var(--topbar-height);
-          background: rgba(15, 17, 23, 0.92);
+          background: rgba(255, 255, 255, 0.85);
           backdrop-filter: blur(12px);
           border-bottom: 1px solid var(--border-color);
           display: flex;
@@ -98,7 +98,7 @@ export function Topbar() {
         }
 
         .topbar-user:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(15, 23, 42, 0.04);
         }
 
         .topbar-avatar {

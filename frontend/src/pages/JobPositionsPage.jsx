@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { jobPositionsAPI, jobStandardsAPI, departmentsAPI } from '../api/client.js';
+import { jobPositionsAPI, jobStandardsAPI, departmentsAPI, settingsAPI } from '../api/client.js';
 import { Table } from '../components/Table.jsx';
 import { Modal } from '../components/Modal.jsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
@@ -14,6 +14,13 @@ const emptyForm = {
   name: '',
   description: '',
   department_id: '',
+  e_score: 0,
+  c_score: 0,
+  r_score: 0,
+  we_weight: 0,
+  wc_weight: 0,
+  wr_weight: 0,
+  salary_spread: 0,
 };
 
 export function JobPositionsPage() {
@@ -37,6 +44,8 @@ export function JobPositionsPage() {
   const [selected, setSelected] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [kFactor, setKFactor] = useState(4000000);
 
   // Standards Management for selected Position
   const [assignedStandards, setAssignedStandards] = useState([]);
@@ -62,12 +71,20 @@ export function JobPositionsPage() {
 
   const loadMeta = async () => {
     try {
-      const [deptRes, stdRes] = await Promise.allSettled([
+      const [deptRes, stdRes, settingsRes] = await Promise.allSettled([
         departmentsAPI.list({ page_size: 200 }),
         jobStandardsAPI.list({ page_size: 200 }),
+        settingsAPI.list(),
       ]);
       if (deptRes.status === 'fulfilled') setDepartments(deptRes.value.data?.data?.items || []);
       if (stdRes.status === 'fulfilled') setAllStandards(stdRes.value.data?.data?.items || []);
+      if (settingsRes.status === 'fulfilled') {
+        const settings = settingsRes.value.data?.data || [];
+        const kSetting = settings.find(s => s.key === 'payroll_k_factor');
+        if (kSetting && kSetting.value) {
+          setKFactor(parseFloat(kSetting.value) || 4000000);
+        }
+      }
     } catch { /**/ }
   };
 
@@ -99,6 +116,13 @@ export function JobPositionsPage() {
       name: pos.name || '',
       description: pos.description || '',
       department_id: pos.department_id || '',
+      e_score: pos.e_score ?? 0,
+      c_score: pos.c_score ?? 0,
+      r_score: pos.r_score ?? 0,
+      we_weight: (pos.we_weight ?? 0) * 100,
+      wc_weight: (pos.wc_weight ?? 0) * 100,
+      wr_weight: (pos.wr_weight ?? 0) * 100,
+      salary_spread: (pos.salary_spread ?? 0) * 100,
     });
     setEditOpen(true);
   };
@@ -124,6 +148,19 @@ export function JobPositionsPage() {
     setDeleteOpen(true);
   };
 
+  const getPayload = () => {
+    return {
+      ...form,
+      e_score: parseFloat(form.e_score) || 0,
+      c_score: parseFloat(form.c_score) || 0,
+      r_score: parseFloat(form.r_score) || 0,
+      we_weight: (parseFloat(form.we_weight) || 0) / 100,
+      wc_weight: (parseFloat(form.wc_weight) || 0) / 100,
+      wr_weight: (parseFloat(form.wr_weight) || 0) / 100,
+      salary_spread: (parseFloat(form.salary_spread) || 0) / 100,
+    };
+  };
+
   const handleCreate = async () => {
     if (!form.code || !form.name) {
       toast.error('Thiếu thông tin', 'Vui lòng nhập mã và tên vị trí');
@@ -131,7 +168,7 @@ export function JobPositionsPage() {
     }
     setSaving(true);
     try {
-      await jobPositionsAPI.create(form);
+      await jobPositionsAPI.create(getPayload());
       toast.success('Thành công', 'Đã tạo vị trí công việc mới');
       setCreateOpen(false);
       loadPositions(page, search);
@@ -149,7 +186,7 @@ export function JobPositionsPage() {
     }
     setSaving(true);
     try {
-      await jobPositionsAPI.update(selected.id, form);
+      await jobPositionsAPI.update(selected.id, getPayload());
       toast.success('Thành công', 'Đã cập nhật vị trí công việc');
       setEditOpen(false);
       loadPositions(page, search);
@@ -237,14 +274,25 @@ export function JobPositionsPage() {
       }
     },
     {
+      key: 'min_salary',
+      title: 'Khung lương P1 (Min - Max)',
+      render: (_, row) => {
+        if (row.min_salary && row.max_salary) {
+          return (
+            <span className="font-bold text-success" style={{ fontSize: 13 }}>
+              {Math.round(row.min_salary).toLocaleString('vi-VN')}đ - {Math.round(row.max_salary).toLocaleString('vi-VN')}đ
+            </span>
+          );
+        }
+        return <span className="text-muted">—</span>;
+      }
+    },
+    {
       key: 'id',
       title: 'Thao tác',
       style: { width: 220 },
       render: (_, row) => (
         <div className="td-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => openStandards(row)}>
-            Tiêu chuẩn
-          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
             Sửa
           </button>
@@ -294,10 +342,10 @@ export function JobPositionsPage() {
       </div>
 
       {/* Create Modal */}
-      <PositionForm title="Thêm vị trí" onSubmit={handleCreate} isOpen={createOpen} onClose={() => setCreateOpen(false)} form={form} handleFormChange={handleFormChange} saving={saving} departments={departments} />
+      <PositionForm title="Thêm vị trí" onSubmit={handleCreate} isOpen={createOpen} onClose={() => setCreateOpen(false)} form={form} handleFormChange={handleFormChange} saving={saving} departments={departments} kFactor={kFactor} />
 
       {/* Edit Modal */}
-      <PositionForm title="Sửa thông tin vị trí" onSubmit={handleEdit} isOpen={editOpen} onClose={() => setEditOpen(false)} form={form} handleFormChange={handleFormChange} saving={saving} departments={departments} />
+      <PositionForm title="Sửa thông tin vị trí" onSubmit={handleEdit} isOpen={editOpen} onClose={() => setEditOpen(false)} form={form} handleFormChange={handleFormChange} saving={saving} departments={departments} kFactor={kFactor} />
 
       {/* Standards Assignment Modal */}
       <Modal 
@@ -388,7 +436,25 @@ export function JobPositionsPage() {
   );
 }
 
-function PositionForm({ title, onSubmit, isOpen, onClose, form, handleFormChange, saving, departments }) {
+function PositionForm({ title, onSubmit, isOpen, onClose, form, handleFormChange, saving, departments, kFactor }) {
+  const eVal = parseFloat(form.e_score) || 0;
+  const cVal = parseFloat(form.c_score) || 0;
+  const rVal = parseFloat(form.r_score) || 0;
+  const weVal = (parseFloat(form.we_weight) || 0) / 100;
+  const wcVal = (parseFloat(form.wc_weight) || 0) / 100;
+  const wrVal = (parseFloat(form.wr_weight) || 0) / 100;
+  const spreadVal = (parseFloat(form.salary_spread) || 0) / 100;
+
+  const totalWeight = weVal + wcVal + wrVal;
+  const jobScore = (eVal * weVal) + (cVal * wcVal) + (rVal * wrVal);
+  const midpoint = jobScore * kFactor;
+  let minSal = midpoint;
+  let maxSal = midpoint;
+  if (spreadVal > 0) {
+    minSal = midpoint / (1 + spreadVal / 2);
+    maxSal = minSal * (1 + spreadVal);
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -442,8 +508,125 @@ function PositionForm({ title, onSubmit, isOpen, onClose, form, handleFormChange
           value={form.description} 
           onChange={handleFormChange} 
           placeholder="Mô tả công việc..." 
-          style={{ minHeight: 80 }}
+          style={{ minHeight: 60 }}
         />
+      </div>
+
+      <div className="section-title" style={{ fontSize: '13px', fontWeight: 600, marginTop: 20, marginBottom: 12, borderTop: '1px solid #eee', paddingTop: 15, color: '#495057' }}>
+        Định giá lương P1 (Job Evaluation)
+      </div>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 15px', marginBottom: 15 }}>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label">Chuyên môn (E)</label>
+          <input 
+            type="number" 
+            className="form-control" 
+            name="e_score" 
+            min="0" 
+            max="5" 
+            step="0.1"
+            value={form.e_score} 
+            onChange={handleFormChange} 
+          />
+        </div>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label">Trọng số E (%)</label>
+          <input 
+            type="number" 
+            className="form-control" 
+            name="we_weight" 
+            min="0" 
+            max="100" 
+            value={form.we_weight} 
+            onChange={handleFormChange} 
+          />
+        </div>
+
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label">Phức tạp (C)</label>
+          <input 
+            type="number" 
+            className="form-control" 
+            name="c_score" 
+            min="0" 
+            max="5" 
+            step="0.1"
+            value={form.c_score} 
+            onChange={handleFormChange} 
+          />
+        </div>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label">Trọng số C (%)</label>
+          <input 
+            type="number" 
+            className="form-control" 
+            name="wc_weight" 
+            min="0" 
+            max="100" 
+            value={form.wc_weight} 
+            onChange={handleFormChange} 
+          />
+        </div>
+
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label">Trách nhiệm (R)</label>
+          <input 
+            type="number" 
+            className="form-control" 
+            name="r_score" 
+            min="0" 
+            max="5" 
+            step="0.1"
+            value={form.r_score} 
+            onChange={handleFormChange} 
+          />
+        </div>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label">Trọng số R (%)</label>
+          <input 
+            type="number" 
+            className="form-control" 
+            name="wr_weight" 
+            min="0" 
+            max="100" 
+            value={form.wr_weight} 
+            onChange={handleFormChange} 
+          />
+        </div>
+
+        <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+          <label className="form-label">Độ rộng dải lương (Spread Rp %)</label>
+          <input 
+            type="number" 
+            className="form-control" 
+            name="salary_spread" 
+            min="0" 
+            max="100" 
+            value={form.salary_spread} 
+            onChange={handleFormChange} 
+            placeholder="VD: 40"
+          />
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, marginTop: 15, border: '1px solid #e9ecef' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#495057', marginBottom: 8 }}>Xem trước tính toán P1 (Hệ số K: {kFactor.toLocaleString('vi-VN')}đ)</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', fontSize: 12 }}>
+          <div>Tổng trọng số: <strong style={{ color: Math.abs(totalWeight - 1) > 0.001 ? '#dc3545' : '#28a745' }}>{(totalWeight * 100).toFixed(0)}%</strong></div>
+          <div>Job Score (S): <strong className="font-bold">{jobScore.toFixed(2)}</strong></div>
+          <div>Lương trung vị (Mid): <strong>{Math.round(midpoint).toLocaleString('vi-VN')}đ</strong></div>
+          <div>Độ rộng dải (Rp): <strong>{(spreadVal * 100).toFixed(0)}%</strong></div>
+        </div>
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #ced4da', display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+          <div>Sàn lương (Min): <strong style={{ color: '#28a745' }}>{Math.round(minSal).toLocaleString('vi-VN')}đ</strong></div>
+          <div>Trần lương (Max): <strong style={{ color: '#28a745' }}>{Math.round(maxSal).toLocaleString('vi-VN')}đ</strong></div>
+        </div>
+        {Math.abs(totalWeight - 1) > 0.001 && totalWeight > 0 && (
+          <div style={{ fontSize: 11, color: '#dc3545', marginTop: 8 }}>
+            ⚠️ Tổng trọng số các yếu tố phải bằng 100% (hiện tại là {(totalWeight * 100).toFixed(0)}%)
+          </div>
+        )}
       </div>
     </Modal>
   );

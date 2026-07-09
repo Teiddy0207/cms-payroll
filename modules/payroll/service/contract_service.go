@@ -8,6 +8,7 @@ import (
 	"cal-salary/modules/payroll/entity"
 	"cal-salary/modules/payroll/mapper"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +27,23 @@ func (s *PayrollService) CreateContract(ctx context.Context, req *dto.CreateCont
 		}
 		if hasActive {
 			return nil, errors.NewAppError(errors.ErrAlreadyExists, "nhân viên đã có một hợp đồng khác đang hoạt động (ACTIVE)", nil)
+		}
+	}
+
+	// Validate P1 salary range
+	profile, err := s.repo.GetUserProfileByID(ctx, req.EmployeeID)
+	if err != nil {
+		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch employee profile", err)
+	}
+	if profile != nil && profile.PositionID != nil {
+		pos, err := s.repo.GetJobPositionByID(ctx, *profile.PositionID)
+		if err != nil {
+			return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch job position info", err)
+		}
+		if pos != nil && pos.MinSalary > 0 && pos.MaxSalary > 0 {
+			if req.PositionBaseRate < pos.MinSalary || req.PositionBaseRate > pos.MaxSalary {
+				return nil, errors.NewAppError(errors.ErrInvalidInput, fmt.Sprintf("Mức lương đề xuất (%.0fđ) vượt ngoài khung dải lương P1 của vị trí %s (Min: %.0fđ - Max: %.0fđ)", req.PositionBaseRate, pos.Name, pos.MinSalary, pos.MaxSalary), nil)
+			}
 		}
 	}
 
@@ -79,6 +97,17 @@ func (s *PayrollService) UpdateContract(ctx context.Context, id uuid.UUID, req *
 		}
 		if hasActive {
 			return errors.NewAppError(errors.ErrAlreadyExists, "nhân viên đã có một hợp đồng khác đang hoạt động (ACTIVE)", nil)
+		}
+	}
+
+	// Validate P1 salary range
+	profile, err := s.repo.GetUserProfileByID(ctx, existing.EmployeeID)
+	if err == nil && profile != nil && profile.PositionID != nil {
+		pos, err := s.repo.GetJobPositionByID(ctx, *profile.PositionID)
+		if err == nil && pos != nil && pos.MinSalary > 0 && pos.MaxSalary > 0 {
+			if req.PositionBaseRate < pos.MinSalary || req.PositionBaseRate > pos.MaxSalary {
+				return errors.NewAppError(errors.ErrInvalidInput, fmt.Sprintf("Mức lương đề xuất (%.0fđ) vượt ngoài khung dải lương P1 của vị trí %s (Min: %.0fđ - Max: %.0fđ)", req.PositionBaseRate, pos.Name, pos.MinSalary, pos.MaxSalary), nil)
+			}
 		}
 	}
 

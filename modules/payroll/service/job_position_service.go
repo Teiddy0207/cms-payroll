@@ -8,6 +8,7 @@ import (
 	"cal-salary/modules/payroll/entity"
 	"cal-salary/modules/payroll/mapper"
 	"context"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -16,8 +17,29 @@ import (
 // Job Positions Service Implementation
 // ==========================================
 
+func (s *PayrollService) calculateP1SalaryRange(ctx context.Context, pos *entity.JobPosition) {
+	kFactor := 4000000.0
+	if kSetting, err := s.repo.GetSystemSetting(ctx, "payroll_k_factor"); err == nil && kSetting != nil {
+		if parsed, err := strconv.ParseFloat(kSetting.Value, 64); err == nil {
+			kFactor = parsed
+		}
+	}
+
+	pos.JobScore = (pos.EScore * pos.WEWeight) + (pos.CScore * pos.WCWeight) + (pos.RScore * pos.WRWeight)
+	pos.Midpoint = pos.JobScore * kFactor
+
+	if pos.SalarySpread <= 0 {
+		pos.MinSalary = pos.Midpoint
+		pos.MaxSalary = pos.Midpoint
+	} else {
+		pos.MinSalary = pos.Midpoint / (1.0 + (pos.SalarySpread / 2.0))
+		pos.MaxSalary = pos.MinSalary * (1.0 + pos.SalarySpread)
+	}
+}
+
 func (s *PayrollService) CreateJobPosition(ctx context.Context, req *dto.CreateJobPositionRequest) (*dto.JobPositionResponse, *errors.AppError) {
 	pos := mapper.ToJobPositionEntity(req)
+	s.calculateP1SalaryRange(ctx, pos)
 	created, err := s.repo.CreateJobPosition(ctx, pos)
 	if err != nil {
 		logger.Error("PayrollService:CreateJobPosition:Error %v", err)
@@ -55,7 +77,15 @@ func (s *PayrollService) UpdateJobPosition(ctx context.Context, id uuid.UUID, re
 		Name:         req.Name,
 		Description:  req.Description,
 		DepartmentID: req.DepartmentID,
+		EScore:       req.EScore,
+		CScore:       req.CScore,
+		RScore:       req.RScore,
+		WEWeight:     req.WEWeight,
+		WCWeight:     req.WCWeight,
+		WRWeight:     req.WRWeight,
+		SalarySpread: req.SalarySpread,
 	}
+	s.calculateP1SalaryRange(ctx, pos)
 
 	err := s.repo.UpdateJobPosition(ctx, id, pos)
 	if err != nil {

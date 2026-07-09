@@ -7,6 +7,17 @@ CREATE TABLE IF NOT EXISTS job_descriptions (
     code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    e_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    c_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    r_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    we_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000,
+    wc_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000,
+    wr_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000,
+    salary_spread DECIMAL(5, 4) NOT NULL DEFAULT 0.0000,
+    job_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    midpoint DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    min_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    max_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -365,3 +376,32 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO users (id, email, username, password, position_id, is_active)
 VALUES ('00000000-0000-0000-0000-000000000000', 'admin@example.com', 'admin', '$2a$10$7/Zf9Y.yD8l.y6K4L.9tLeqJ2d3DkP.L6aK7zTj.b.V6D5X2uG.8K', '00000000-0000-0000-0000-000000000000', true)
 ON CONFLICT (username) DO NOTHING;
+
+-- 29. System Settings table
+CREATE TABLE IF NOT EXISTS system_settings (
+    key         VARCHAR(100) PRIMARY KEY,
+    value       TEXT NOT NULL,
+    description TEXT,
+    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Seed System Settings
+INSERT INTO system_settings (key, value, description)
+VALUES 
+('company_point_rate', '5000', 'Đơn giá quy đổi 1 điểm năng lực thành VND'),
+('payroll_k_factor', '4000000', 'Hệ số quy đổi lương P1 (K factor) VND/điểm')
+ON CONFLICT (key) DO NOTHING;
+
+-- Ensure existing database has the P1 range columns
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS e_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS c_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS r_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS we_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS wc_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS wr_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS salary_spread DECIMAL(5, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS job_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS midpoint DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS min_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS max_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+

@@ -129,22 +129,33 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 		return nil, errors.NewAppError(errors.ErrNotFound, "employee profile not found", nil)
 	}
 
-	// 2. Tính P1 động từ các tiêu chuẩn công việc của vị trí (nếu có vị trí)
+	// 2. Tính P1 từ Hợp đồng lao động active và Job Score của vị trí
+	var p1Total float64
 	var p1Score float64
 	var p1StdsBreakdown []dto.JobStandardBreakdown
+
+	activeContract, err := s.repo.GetActiveContractByEmployeeID(ctx, employeeID)
+	if err != nil {
+		logger.Error("PreviewSalary:GetActiveContractByEmployeeID:Error %v", err)
+		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch active contract", err)
+	}
+	if activeContract != nil {
+		p1Total = activeContract.PositionBaseRate
+	}
+
 	if profile.PositionID != nil {
-		posStds, err := s.repo.GetStandardsByPosition(ctx, *profile.PositionID)
+		pos, err := s.repo.GetJobPositionByID(ctx, *profile.PositionID)
 		if err != nil {
-			logger.Error("PreviewSalary:GetStandardsByPosition:Error %v", err)
-			return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch job position standards", err)
+			logger.Error("PreviewSalary:GetJobPositionByID:Error %v", err)
+			return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch job position", err)
 		}
-		for _, item := range posStds {
-			p1Score += item.AllowanceValue
+		if pos != nil {
+			p1Score = pos.JobScore
 			p1StdsBreakdown = append(p1StdsBreakdown, dto.JobStandardBreakdown{
-				StandardID:     item.JobStandardID,
-				StandardCode:   item.StandardCode,
-				StandardName:   item.StandardName,
-				AllowanceValue: item.AllowanceValue,
+				StandardID:     pos.ID,
+				StandardCode:   pos.Code,
+				StandardName:   "Lương dải P1 (" + pos.Name + ")",
+				AllowanceValue: p1Total,
 			})
 		}
 	}
@@ -179,7 +190,6 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 	}
 
 	// 5. Tính tiền
-	p1Total := p1Score * systemRate
 	p2Total := p2Score * systemRate
 	subtotal := p1Total + p2Total
 
@@ -415,19 +425,25 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 
 	env := map[string]interface{}{
 		"P1":           p1,
+		"p1":           p1,
 		"P2":           p2,
+		"p2":           p2,
 		"P3":           p3,
+		"p3":           p3,
 		"GROSS_SALARY": gross,
+		"gross_salary": gross,
 		"TAX":          tax,
+		"tax":          tax,
 		"NET_SALARY":   net,
+		"net_salary":   net,
 	}
 
 	hasTaxFormula := false
 	hasNetFormula := false
 	for _, f := range sortedFormulas {
-		if f.VariableName == "TAX" {
+		if f.VariableName == "TAX" || f.VariableName == "tax" {
 			hasTaxFormula = true
-		} else if f.VariableName == "NET_SALARY" {
+		} else if f.VariableName == "NET_SALARY" || f.VariableName == "net_salary" {
 			hasNetFormula = true
 		}
 	}
@@ -449,24 +465,33 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 		}
 		if val, ok := convertToFloat64(output); ok {
 			env[f.VariableName] = val
-			if f.VariableName == "GROSS_SALARY" {
+			if f.VariableName == "GROSS_SALARY" || f.VariableName == "gross_salary" {
 				gross = val
+				env["GROSS_SALARY"] = val
+				env["gross_salary"] = val
 				if !hasTaxFormula {
 					tax = gross * 0.1
 					env["TAX"] = tax
+					env["tax"] = tax
 				}
 				if !hasNetFormula {
 					net = gross - tax
 					env["NET_SALARY"] = net
+					env["net_salary"] = net
 				}
-			} else if f.VariableName == "TAX" {
+			} else if f.VariableName == "TAX" || f.VariableName == "tax" {
 				tax = val
+				env["TAX"] = val
+				env["tax"] = val
 				if !hasNetFormula {
 					net = gross - tax
 					env["NET_SALARY"] = net
+					env["net_salary"] = net
 				}
-			} else if f.VariableName == "NET_SALARY" {
+			} else if f.VariableName == "NET_SALARY" || f.VariableName == "net_salary" {
 				net = val
+				env["NET_SALARY"] = val
+				env["net_salary"] = val
 			} else {
 				desc := f.Description
 				if desc == "" {
