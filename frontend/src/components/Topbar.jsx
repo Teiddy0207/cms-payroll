@@ -9,6 +9,7 @@ const routeTitles = {
   '/job-standards': { title: 'Tiêu chuẩn nghề nghiệp', subtitle: 'Các tiêu chuẩn phụ cấp' },
   '/competencies': { title: 'Năng lực', subtitle: 'Quản lý năng lực nhân viên' },
   '/settings': { title: 'Cài đặt hệ thống', subtitle: 'Cấu hình và thông số' },
+  '/attendance-logs': { title: 'Nhật ký chấm công', subtitle: 'Xem lịch sử quét vân tay hoặc nhận dạng khuôn mặt' },
 };
 
 export function Topbar() {

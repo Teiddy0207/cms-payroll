@@ -236,25 +236,23 @@ func (s *PayrollService) RunSalaryCalculation(ctx context.Context, req *dto.Sala
 	failedCount := 0
 
 	for _, profile := range profiles {
-		item := dto.SalaryCalculationItem{
-			EmployeeID:   profile.ID,
-			FullName:     profile.FullName,
-			DepartmentID: profile.DepartmentID,
-			PositionID:   profile.PositionID,
-			Status:       "SUCCESS",
-		}
-
 		preview, calcErr := s.PreviewSalary(ctx, profile.ID, req.Period)
 		if calcErr != nil {
-			item.Status = "FAILED"
-			item.Error = calcErr.Message
+			item := dto.SalaryCalculationItem{
+				EmployeeID:   profile.ID,
+				FullName:     profile.FullName,
+				DepartmentID: profile.DepartmentID,
+				PositionID:   profile.PositionID,
+				Status:       "FAILED",
+				Error:        calcErr.Message,
+			}
+			items = append(items, item)
 			failedCount++
 		} else {
-			item.Preview = preview
+			item := mapper.PreviewToSalaryCalculationItem(preview, &profile)
+			items = append(items, *item)
 			successCount++
 		}
-
-		items = append(items, item)
 	}
 
 	return &dto.SalaryCalculationResponse{
@@ -303,7 +301,7 @@ func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto
 		return "", errors.NewAppError(errors.ErrInvalidInput, "invalid period format", err)
 	}
 
-	lockKey := "bluenet_3ps_backend:lock:payroll:run:" + req.Period
+	lockKey := "RunSalaryCalculationAsync:lock:payroll:run:" + req.Period
 	ok, err := s.cache.GetClient().SetNX(ctx, lockKey, "1", 5*time.Minute).Result()
 	if err != nil || !ok {
 		return "", errors.NewAppError(errors.ErrResourceLocked, "a calculation job is already running for this period", nil)
@@ -316,7 +314,7 @@ func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto
 	}
 
 	jobID := uuid.New().String()
-	jobKey := "bluenet_3ps_backend:job:payroll:" + jobID
+	jobKey := "RunSalaryCalculationAsync:job:payroll:" + jobID
 
 	jobData := map[string]interface{}{
 		"job_id":          jobID,
@@ -371,7 +369,7 @@ func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto
 			go func() {
 				defer wg.Done()
 				for p := range profileChan {
-					empLockKey := fmt.Sprintf("bluenet_3ps_backend:lock:payroll:process:%s:%s", req.Period, p.ID.String())
+					empLockKey := fmt.Sprintf("RunSalaryCalculationAsync:lock:payroll:process:%s:%s", req.Period, p.ID.String())
 					ok, err := s.cache.GetClient().SetNX(bgCtx, empLockKey, "1", 30*time.Second).Result()
 					if err != nil || !ok {
 						atomic.AddInt64(&failedCounter, 1)
@@ -506,7 +504,7 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 }
 
 func (s *PayrollService) GetCalculationJobStatus(ctx context.Context, jobID string) (map[string]any, *errors.AppError) {
-	jobKey := "bluenet_3ps_backend:job:payroll:" + jobID
+	jobKey := "RunSalaryCalculationAsync:job:payroll:" + jobID
 	data, err := s.cache.GetClient().HGetAll(ctx, jobKey).Result()
 	if err != nil {
 		logger.Error("GetCalculationJobStatus:Error %v", err)

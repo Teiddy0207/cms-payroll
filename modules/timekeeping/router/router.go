@@ -29,6 +29,7 @@ func (r *TimekeepingRouter) Setup(e *echo.Echo, middlewareInstance *middleware.M
 
 	timekeepingRoutes.POST("/checkin", r.TimekeepingController.ProcessCheckIn)
 	timekeepingRoutes.GET("/sheets", r.TimekeepingController.GetDailyAttendanceSheets)
+	timekeepingRoutes.GET("/logs", r.TimekeepingController.GetAttendanceLogs)
 	timekeepingRoutes.POST("/sheets/calculate", r.TimekeepingController.CalculateTimesheets)
 
 	timekeepingRoutes.POST("/explanations", r.TimekeepingController.CreateExplanationRequest)

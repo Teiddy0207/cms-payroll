@@ -360,3 +360,80 @@ func (r *TimekeepingRepositoryImpl) DeleteFaceTemplate(ctx context.Context, code
 	_, err := r.DB.SQLx().ExecContext(ctx, query, code)
 	return err
 }
+
+func (r *TimekeepingRepositoryImpl) GetAttendanceLogsList(ctx context.Context, employeeCodeFilter *string, employeeIDFilter *uuid.UUID, departmentIDFilter *uuid.UUID, dateFilter *time.Time, qp params.QueryParams) ([]entity.AttendanceLog, int, error) {
+	offset := (qp.PageNumber - 1) * qp.PageSize
+	if offset < 0 {
+		offset = 0
+	}
+	pageSize := qp.PageSize
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	baseQuery := `
+		FROM attendance_logs l
+		JOIN user_profiles u ON l.employee_code = u.code
+	`
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
+
+	if employeeCodeFilter != nil && *employeeCodeFilter != "" {
+		conditions = append(conditions, fmt.Sprintf("l.employee_code = $%d", argIndex))
+		args = append(args, *employeeCodeFilter)
+		argIndex++
+	}
+
+	if employeeIDFilter != nil {
+		conditions = append(conditions, fmt.Sprintf("u.id = $%d", argIndex))
+		args = append(args, *employeeIDFilter)
+		argIndex++
+	}
+
+	if departmentIDFilter != nil {
+		conditions = append(conditions, fmt.Sprintf("u.department_id = $%d", argIndex))
+		args = append(args, *departmentIDFilter)
+		argIndex++
+	}
+
+	if dateFilter != nil {
+		conditions = append(conditions, fmt.Sprintf("l.timestamp::date = $%d::date", argIndex))
+		args = append(args, *dateFilter)
+		argIndex++
+	}
+
+	if qp.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("(u.full_name ILIKE $%d OR u.code ILIKE $%d)", argIndex, argIndex))
+		args = append(args, "%"+qp.Search+"%")
+		argIndex++
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var totalItems int
+	countQuery := fmt.Sprintf("SELECT COUNT(l.id) %s %s", baseQuery, whereClause)
+	err := r.DB.SQLx().GetContext(ctx, &totalItems, countQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := fmt.Sprintf(`
+		SELECT l.id, l.employee_code, l.timestamp, l.location_gps, l.device_id, l.created_at
+		%s
+		%s
+		ORDER BY l.timestamp DESC
+		LIMIT %d OFFSET %d
+	`, baseQuery, whereClause, pageSize, offset)
+
+	var list []entity.AttendanceLog
+	err = r.DB.SQLx().SelectContext(ctx, &list, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return list, totalItems, nil
+}

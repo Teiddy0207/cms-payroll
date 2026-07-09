@@ -15,6 +15,7 @@ import SettingsPage from './pages/SettingsPage.jsx';
 import FormulasPage from './pages/FormulasPage.jsx';
 import FaceScanKiosk from './pages/FaceScanKiosk.jsx';
 import TimesheetsPage from './pages/TimesheetsPage.jsx';
+import AttendanceLogsPage from './pages/AttendanceLogsPage.jsx';
 import ExplanationRequestsPage from './pages/ExplanationRequestsPage.jsx';
 import OTRequestsPage from './pages/OTRequestsPage.jsx';
 
@@ -49,6 +50,7 @@ function App() {
             <Route path="payroll-formulas" element={<FormulasPage />} />
             <Route path="face-scan" element={<FaceScanKiosk />} />
             <Route path="timesheets" element={<TimesheetsPage />} />
+            <Route path="attendance-logs" element={<AttendanceLogsPage />} />
             <Route path="explanation-requests" element={<ExplanationRequestsPage />} />
             <Route path="ot-requests" element={<OTRequestsPage />} />
             <Route path="contracts" element={<ContractsPage />} />

@@ -12,6 +12,7 @@ import (
 type TimekeepingService interface {
 	ProcessCheckIn(ctx context.Context, req *dto.CheckinRequest) (*dto.CheckinResponse, *errors.AppError)
 	GetDailyAttendanceSheets(ctx context.Context, userID uuid.UUID, qp params.QueryParams) (*dto.PaginatedDailyAttendanceResponse, *errors.AppError)
+	GetAttendanceLogsList(ctx context.Context, userID uuid.UUID, qp params.QueryParams) (*dto.PaginatedAttendanceLogResponse, *errors.AppError)
 	CalculateTimesheets(ctx context.Context, req *dto.CalculateTimesheetRequest) *errors.AppError
 
 	CreateExplanationRequest(ctx context.Context, userID uuid.UUID, req *dto.CreateExplanationRequest) (*dto.ExplanationRequestResponse, *errors.AppError)

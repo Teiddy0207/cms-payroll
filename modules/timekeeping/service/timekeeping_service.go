@@ -188,7 +188,7 @@ func (s *TimekeepingServiceImpl) ProcessCheckIn(ctx context.Context, req *dto.Ch
 	matchedFullName = profile.FullName
 	matchedEmployeeCode = profile.Code
 
-	redisKey := fmt.Sprintf("bluenet_3ps_backend:checkin:last:%s", req.EmployeeCode)
+	redisKey := fmt.Sprintf("ProcessCheckIn:checkin:last:%s", req.EmployeeCode)
 	exists, errExists := s.cache.GetClient().Exists(ctx, redisKey).Result()
 
 	if errExists == nil && exists > 0 {
@@ -271,8 +271,13 @@ func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, u
 		} else {
 			employeeIDFilter = &profile.ID
 		}
+	} else {
+		if deptIDStr, ok := qp.Filters["department_id"]; ok && deptIDStr != "" {
+			if parsedDeptID, errParse := uuid.Parse(deptIDStr); errParse == nil {
+				departmentIDFilter = &parsedDeptID
+			}
+		}
 	}
-	// isAdmin → cả 2 filter đều nil → lấy toàn bộ dữ liệu
 
 	sheets, totalItems, errSheets := s.repo.GetDailyAttendanceSheets(ctx, employeeIDFilter, departmentIDFilter, start, end, qp)
 	if errSheets != nil {
@@ -351,6 +356,106 @@ func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, u
 		TotalPages: totalPages,
 		PageNumber: pageNumber,
 		PageSize:   pageSize,
+	}, nil
+}
+
+func (s *TimekeepingServiceImpl) GetAttendanceLogsList(ctx context.Context, userID uuid.UUID, qp params.QueryParams) (*dto.PaginatedAttendanceLogResponse, *errors.AppError) {
+	role, errRole := s.getUserRole(ctx, userID)
+	if errRole != nil {
+		role = "employee"
+	}
+
+	roleUpper := strings.ToUpper(role)
+	isAdmin := roleUpper == "ADMIN" || roleUpper == "DIRECTOR"
+	isManager := roleUpper == "MANAGER"
+
+	var employeeIDFilter *uuid.UUID
+	var departmentIDFilter *uuid.UUID
+
+	if !isAdmin {
+		profile, err := s.getProfileByUserID(ctx, userID)
+		if err != nil {
+			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân viên", err)
+		}
+
+		if isManager {
+			deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
+			if errDept == nil {
+				departmentIDFilter = &deptID
+			} else {
+				employeeIDFilter = &profile.ID
+			}
+		} else {
+			employeeIDFilter = &profile.ID
+		}
+	} else {
+		if deptIDStr, ok := qp.Filters["department_id"]; ok && deptIDStr != "" {
+			if parsedDeptID, errParse := uuid.Parse(deptIDStr); errParse == nil {
+				departmentIDFilter = &parsedDeptID
+			}
+		}
+	}
+
+	var dateFilter *time.Time
+	if dateStr, ok := qp.Filters["date"]; ok && dateStr != "" {
+		if parsedDate, errParse := time.Parse("2006-01-02", dateStr); errParse == nil {
+			dateFilter = &parsedDate
+		}
+	}
+
+	logs, totalItems, errLogs := s.repo.GetAttendanceLogsList(ctx, nil, employeeIDFilter, departmentIDFilter, dateFilter, qp)
+	if errLogs != nil {
+		return nil, errors.NewAppError(errors.ErrInternalServer, "Lỗi truy vấn nhật ký chấm công", errLogs)
+	}
+
+	var allProfiles []payrollEntity.UserProfile
+	query := `
+		SELECT u.id, u.user_id, u.code, u.full_name, u.phone, u.avatar, u.date_of_birth, u.gender, u.position_id, u.department_id, u.created_at, u.updated_at
+		FROM user_profiles u
+	`
+	_ = s.payrollRepo.DB.SQLx().SelectContext(ctx, &allProfiles, query)
+
+	var allDepartments []payrollEntity.Department
+	queryDept := `SELECT id, name FROM departments`
+	_ = s.payrollRepo.DB.SQLx().SelectContext(ctx, &allDepartments, queryDept)
+
+	profileMap := make(map[string]payrollEntity.UserProfile)
+	for _, p := range allProfiles {
+		profileMap[p.Code] = p
+	}
+
+	deptMap := make(map[uuid.UUID]string)
+	for _, d := range allDepartments {
+		deptMap[d.ID] = d.Name
+	}
+
+	var items []dto.AttendanceLogResponse
+	for _, l := range logs {
+		fullName := l.EmployeeCode
+		deptName := "Không có"
+		if p, ok := profileMap[l.EmployeeCode]; ok {
+			fullName = p.FullName
+			if p.DepartmentID != nil {
+				if dn, exists := deptMap[*p.DepartmentID]; exists {
+					deptName = dn
+				}
+			}
+		}
+
+		items = append(items, dto.AttendanceLogResponse{
+			ID:             l.ID,
+			EmployeeCode:   l.EmployeeCode,
+			FullName:       fullName,
+			DepartmentName: deptName,
+			Timestamp:      l.Timestamp,
+			LocationGPS:    l.LocationGPS,
+			DeviceId:       l.DeviceId,
+		})
+	}
+
+	return &dto.PaginatedAttendanceLogResponse{
+		Items:      items,
+		TotalItems: totalItems,
 	}, nil
 }
 

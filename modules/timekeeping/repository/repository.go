@@ -13,6 +13,7 @@ type TimekeepingRepository interface {
 	CreateAttendanceLog(ctx context.Context, log *entity.AttendanceLog) error
 	GetAttendanceLogs(ctx context.Context, employeeCode string, start, end time.Time) ([]entity.AttendanceLog, error)
 	GetAttendanceLogsForCalculation(ctx context.Context, start, end time.Time) ([]entity.AttendanceLog, error)
+	GetAttendanceLogsList(ctx context.Context, employeeCodeFilter *string, employeeIDFilter *uuid.UUID, departmentIDFilter *uuid.UUID, dateFilter *time.Time, qp params.QueryParams) ([]entity.AttendanceLog, int, error)
 
 	UpsertDailyAttendanceSheet(ctx context.Context, sheet *entity.DailyAttendanceSheet) error
 	GetDailyAttendanceSheets(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID, start, end time.Time, qp params.QueryParams) ([]entity.DailyAttendanceSheet, int, error)

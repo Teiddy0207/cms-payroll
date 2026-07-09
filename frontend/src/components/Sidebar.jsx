@@ -20,8 +20,9 @@ const navSections = [
   {
     title: 'Chấm công',
     items: [
-      { path: '/face-scan', label: 'Chấm công khuôn mặt' },
+      // { path: '/face-scan', label: 'Chấm công khuôn mặt' },
       { path: '/timesheets', label: 'Bảng chấm công' },
+      { path: '/attendance-logs', label: 'Nhật ký chấm công' },
       { path: '/explanation-requests', label: 'Giải trình bù công' },
       { path: '/ot-requests', label: 'Đăng ký làm thêm (OT)' }
     ]

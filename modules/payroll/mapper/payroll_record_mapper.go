@@ -39,3 +39,14 @@ func ToSalaryCalculationItem(record *entity.PayrollRecord, profile *entity.UserP
 		Preview:      preview,
 	}
 }
+
+func PreviewToSalaryCalculationItem(preview *dto.SalaryPreviewResponse, profile *entity.UserProfile) *dto.SalaryCalculationItem {
+	return &dto.SalaryCalculationItem{
+		EmployeeID:   preview.EmployeeID,
+		FullName:     preview.FullName,
+		DepartmentID: profile.DepartmentID,
+		PositionID:   profile.PositionID,
+		Status:       "SUCCESS",
+		Preview:      preview,
+	}
+}

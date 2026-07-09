@@ -162,6 +162,8 @@ export const timekeepingAPI = {
     client.post('/private/timekeeping/checkin', data),
   getSheets: (params) =>
     client.get('/private/timekeeping/sheets', { params }),
+  getLogs: (params) =>
+    client.get('/private/timekeeping/logs', { params }),
   calculateSheets: (data) =>
     client.post('/private/timekeeping/sheets/calculate', data),
   getExplanations: () =>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { timekeepingAPI } from '../api/client.js';
+import { timekeepingAPI, departmentsAPI } from '../api/client.js';
 import { Table } from '../components/Table.jsx';
 import { Modal } from '../components/Modal.jsx';
 import { Badge } from '../components/Badge.jsx';
@@ -7,6 +7,22 @@ import { Pagination } from '../components/Pagination.jsx';
 import { useToast } from '../hooks/useToast.js';
 
 const PAGE_SIZE = 10;
+
+const parseJwt = (token) => {
+	try {
+		const base64Url = token.split('.')[1];
+		const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+		const pad = base64.length % 4;
+		const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
+		const jsonPayload = decodeURIComponent(window.atob(paddedBase64).split('').map(function(c) {
+			return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+		}).join(''));
+		return JSON.parse(jsonPayload);
+	} catch (e) {
+		console.error("JWT parse error:", e);
+		return null;
+	}
+};
 
 export function TimesheetsPage() {
 	const toast = useToast();
@@ -25,8 +41,40 @@ export function TimesheetsPage() {
 	const [searchQuery, setSearchQuery] = useState('');
 	const [statusFilter, setStatusFilter] = useState('ALL');
 	const [filterDate, setFilterDate] = useState('');
+	const [selectedDepartment, setSelectedDepartment] = useState('ALL');
+	const [departments, setDepartments] = useState([]);
+	const [isAdmin, setIsAdmin] = useState(false);
 	const [page, setPage] = useState(1);
 	const [total, setTotal] = useState(0);
+
+	useEffect(() => {
+		const token = localStorage.getItem('auth_token');
+		if (token) {
+			const payload = parseJwt(token);
+			if (payload) {
+				const adminCheck = (payload.user_name && payload.user_name.toLowerCase().includes('admin')) || 
+				                   (payload.email && payload.email.toLowerCase().includes('admin')) || 
+				                   payload.user_id === '00000000-0000-0000-0000-000000000000' || 
+				                   payload.user_id === 'ea6133fe-f3c8-421d-801e-31264ee47b43';
+				console.log("DEBUG FRONTEND: payload =", payload, "adminCheck =", adminCheck);
+				setIsAdmin(adminCheck);
+			}
+		}
+	}, []);
+
+	useEffect(() => {
+		if (isAdmin) {
+			const loadDepartments = async () => {
+				try {
+					const res = await departmentsAPI.list({ page_number: 1, page_size: 100 });
+					setDepartments(res.data?.data?.items || []);
+				} catch (err) {
+					console.error("loadDepartments error:", err);
+				}
+			};
+			loadDepartments();
+		}
+	}, [isAdmin]);
 
 	const loadSheets = async () => {
 		setLoading(true);
@@ -37,7 +85,8 @@ export function TimesheetsPage() {
 				period: period,
 				search: searchQuery,
 				status: statusFilter,
-				date: filterDate
+				date: filterDate,
+				department_id: selectedDepartment === 'ALL' ? '' : selectedDepartment
 			};
 			const res = await timekeepingAPI.getSheets(params);
 			const d = res.data?.data;
@@ -53,11 +102,11 @@ export function TimesheetsPage() {
 
 	useEffect(() => {
 		setPage(1);
-	}, [period, searchQuery, statusFilter, filterDate]);
+	}, [period, searchQuery, statusFilter, filterDate, selectedDepartment]);
 
 	useEffect(() => {
 		loadSheets();
-	}, [page, period, searchQuery, statusFilter, filterDate]);
+	}, [page, period, searchQuery, statusFilter, filterDate, selectedDepartment]);
 
 	const handleOpenCalc = () => {
 		const [year, month] = period.split('-');
@@ -254,6 +303,25 @@ export function TimesheetsPage() {
 						</select>
 					</div>
 
+					{isAdmin && (
+						<div style={{ width: 180 }}>
+							<label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Phong ban</label>
+							<select
+								className="form-input"
+								value={selectedDepartment}
+								onChange={e => setSelectedDepartment(e.target.value)}
+								style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+							>
+								<option value="ALL">Tat ca phong ban</option>
+								{departments.map(dept => (
+									<option key={dept.id} value={dept.id}>
+										{dept.name}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
+
 					<div style={{ display: 'flex', alignItems: 'flex-end' }}>
 						<button
 							className="btn btn-secondary"
@@ -261,6 +329,7 @@ export function TimesheetsPage() {
 								setSearchQuery('');
 								setFilterDate('');
 								setStatusFilter('ALL');
+								setSelectedDepartment('ALL');
 							}}
 							style={{ padding: '9px 16px', borderRadius: 'var(--radius-md)' }}
 						>

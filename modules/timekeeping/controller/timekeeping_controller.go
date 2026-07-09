@@ -77,6 +77,22 @@ func (ctrl *TimekeepingController) GetDailyAttendanceSheets(c echo.Context) erro
 	return ctrl.SuccessResponse(c, resp, "Tải bảng công thành công")
 }
 
+func (ctrl *TimekeepingController) GetAttendanceLogs(c echo.Context) error {
+	ctx := c.Request().Context()
+	claims, err := ctrl.getUserClaims(c)
+	if err != nil {
+		return ctrl.Unauthorized(errors.ErrUnauthorized, "Yêu cầu đăng nhập", nil)
+	}
+
+	qp := params.NewQueryParams(c)
+
+	resp, appErr := ctrl.Service.GetAttendanceLogsList(ctx, claims.UserID, *qp)
+	if appErr != nil {
+		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
+	}
+	return ctrl.SuccessResponse(c, resp, "Tải nhật ký chấm công thành công")
+}
+
 func (ctrl *TimekeepingController) CalculateTimesheets(c echo.Context) error {
 	ctx := c.Request().Context()
 	req := new(dto.CalculateTimesheetRequest)
