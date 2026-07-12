@@ -527,6 +527,7 @@ func (s *PayrollService) GetSavedPayrollRecords(ctx context.Context, period stri
 
 	records, err := s.repo.GetPayrollRecords(ctx, periodRecord.ID)
 	if err != nil {
+		logger.Error("GetSavedPayrollRecords:Error %v", err)
 		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch payroll records", err)
 	}
 
@@ -537,7 +538,7 @@ func (s *PayrollService) GetSavedPayrollRecords(ctx context.Context, period stri
 			continue
 		}
 
-		details, err := s.repo.GetPayrollRecordDetails(ctx, r.ID)
+		details, err := s.repo.GetPayrollRecordDetails(ctx, r.ID, param)
 		if err != nil {
 			continue
 		}

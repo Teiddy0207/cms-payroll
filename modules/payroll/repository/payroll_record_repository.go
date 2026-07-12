@@ -1,9 +1,12 @@
 package repository
 
 import (
+	"cal-salary/core/params"
 	"cal-salary/modules/payroll/entity"
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -109,23 +112,41 @@ func (r *PayrollRepository) GetPayrollRecords(ctx context.Context, periodID uuid
 	return list, nil
 }
 
-func (r *PayrollRepository) GetPayrollRecordDetails(ctx context.Context, recordID uuid.UUID, departmentID *uuid.UUID) ([]entity.PayrollRecordDetail, error) {
+func (r *PayrollRepository) GetPayrollRecordDetails(ctx context.Context, recordID uuid.UUID, params params.QueryParams) ([]entity.PayrollRecordDetail, error) {
 	var list []entity.PayrollRecordDetail
-	var err error
-	if departmentID != nil {
-		query := `
-			SELECT d.id, d.record_id, d.component, d.description, d.source, d.amount, d.created_at 
-			FROM payroll_record_details d
-			JOIN payroll_records pr ON d.record_id = pr.id
-			JOIN user_profiles u ON pr.employee_id = u.id
-			WHERE d.record_id = $1 AND u.department_id = $2
-		`
-		err = r.DB.SQLx().SelectContext(ctx, &list, query, recordID, *departmentID)
-	} else {
-		query := `SELECT id, record_id, component, description, source, amount, created_at FROM payroll_record_details WHERE record_id = $1`
-		err = r.DB.SQLx().SelectContext(ctx, &list, query, recordID)
+
+	baseQuery := `
+		FROM payroll_record_details d
+		JOIN payroll_records pr ON d.record_id = pr.id
+		JOIN user_profiles u ON pr.employee_id = u.id
+	`
+
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
+
+	conditions = append(conditions, fmt.Sprintf("d.record_id = $%d", argIndex))
+	args = append(args, recordID)
+	argIndex++
+
+	if deptIDStr, ok := params.Filters["department_id"]; ok && deptIDStr != "" {
+		if deptID, err := uuid.Parse(deptIDStr); err == nil {
+			conditions = append(conditions, fmt.Sprintf("u.department_id = $%d", argIndex))
+			args = append(args, deptID)
+			argIndex++
+		}
 	}
 
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	dataQuery := `
+		SELECT d.id, d.record_id, d.component, d.description, d.source, d.amount, d.created_at
+	` + baseQuery + whereClause + ` ORDER BY d.created_at ASC`
+
+	err := r.DB.SQLx().SelectContext(ctx, &list, dataQuery, args...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []entity.PayrollRecordDetail{}, nil
