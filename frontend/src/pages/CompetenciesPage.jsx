@@ -85,7 +85,7 @@ export function CompetenciesPage() {
 
   const handleCreate = async () => {
     if (!form.code || !form.name || form.point_value <= 0) {
-      toast.error('Thiếu thông tin', 'Vui lòng nhập mã, tên và giá trị điểm hợp lệ');
+      toast.error('Thiếu thông tin', 'Vui lòng nhập mã, tên và mức phụ cấp hợp lệ');
       return;
     }
     setSaving(true);
@@ -106,7 +106,7 @@ export function CompetenciesPage() {
 
   const handleEdit = async () => {
     if (!form.name || form.point_value <= 0) {
-      toast.error('Thiếu thông tin', 'Vui lòng nhập tên và giá trị điểm hợp lệ');
+      toast.error('Thiếu thông tin', 'Vui lòng nhập tên và mức phụ cấp hợp lệ');
       return;
     }
     setSaving(true);
@@ -156,8 +156,8 @@ export function CompetenciesPage() {
     },
     {
       key: 'point_value',
-      title: 'Điểm số (point_value)',
-      render: (val) => <span style={{ color: 'var(--purple)', fontWeight: 'bold' }}>{val}</span>,
+      title: 'Mức phụ cấp (VND)',
+      render: (val) => <span style={{ color: 'var(--purple)', fontWeight: 'bold' }}>{val?.toLocaleString('vi-VN')}đ</span>,
     },
     {
       key: 'description',
@@ -264,14 +264,14 @@ function CompetencyForm({ title, onSubmit, isOpen, onClose, form, handleFormChan
           />
         </div>
         <div className="form-group">
-          <label className="form-label">Điểm số <span className="required">*</span></label>
+          <label className="form-label">Mức phụ cấp (VND) <span className="required">*</span></label>
           <input 
             className="form-control" 
             type="number" 
             name="point_value" 
             value={form.point_value} 
             onChange={handleFormChange} 
-            placeholder="VD: 15" 
+            placeholder="VD: 500000" 
           />
         </div>
       </div>

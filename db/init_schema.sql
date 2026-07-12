@@ -385,10 +385,8 @@ CREATE TABLE IF NOT EXISTS system_settings (
     updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Seed System Settings
 INSERT INTO system_settings (key, value, description)
 VALUES 
-('company_point_rate', '5000', 'Đơn giá quy đổi 1 điểm năng lực thành VND'),
 ('payroll_k_factor', '4000000', 'Hệ số quy đổi lương P1 (K factor) VND/điểm')
 ON CONFLICT (key) DO NOTHING;
 
@@ -407,4 +405,6 @@ ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS max_salary DECIMAL(15, 2) 
 ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS is_benchmark BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS market_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
 ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS search_keyword VARCHAR(100);
+
+DELETE FROM system_settings WHERE key = 'company_point_rate';
 

@@ -9,7 +9,6 @@ import (
 	"cal-salary/modules/payroll/mapper"
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -129,14 +128,6 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 		}
 	}
 
-	// 3. Lấy đơn giá điểm từ system_settings
-	systemRate := 5000.0
-	if rateSetting, err := s.repo.GetSystemSetting(ctx, "company_point_rate"); err == nil && rateSetting != nil {
-		if parsed, err := strconv.ParseFloat(rateSetting.Value, 64); err == nil {
-			systemRate = parsed
-		}
-	}
-
 	// 4. Tính P2 từ danh sách năng lực đã gán cho nhân sự (employee_competencies)
 	empComps, err := s.repo.GetCompetenciesByEmployee(ctx, employeeID)
 	if err != nil {
@@ -159,16 +150,15 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 	}
 
 	// 5. Tính tiền
-	p2Total := p2Score * systemRate
+	p2Total := p2Score
 	subtotal := p1Total + p2Total
 
-	note := fmt.Sprintf("P1 từ tiêu chuẩn vị trí, P2 từ năng lực cá nhân nhân viên %s.", profile.FullName)
+	note := fmt.Sprintf("P1 từ dải lương vị trí và hợp đồng, P2 từ phụ cấp năng lực cá nhân nhân viên %s.", profile.FullName)
 
 	breakdown := map[string]any{
-		"Đơn giá điểm (system rate)":       systemRate,
 		"Tổng điểm P1 (tiêu chuẩn vị trí)": p1Score,
 		"Thành tiền P1 (cơ bản)":           p1Total,
-		"Tổng điểm P2 (năng lực cá nhân)":  p2Score,
+		"Tổng phụ cấp P2 (năng lực)":       p2Score,
 		"Thành tiền P2 (năng lực)":         p2Total,
 	}
 
@@ -180,7 +170,7 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 		P1Total:        p1Total,
 		P2Score:        p2Score,
 		P2Total:        p2Total,
-		SystemRate:     systemRate,
+		SystemRate:     0.0,
 		SubtotalP1P2:   subtotal,
 		P1Standards:    p1StdsBreakdown,
 		P2Competencies: competencyBreakdowns,
