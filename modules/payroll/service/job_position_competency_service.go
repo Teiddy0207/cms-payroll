@@ -18,38 +18,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// ==========================================
-// Job Position Standards Service
-// ==========================================
 
-func (s *PayrollService) AssignStandardToPosition(ctx context.Context, positionID uuid.UUID, req *dto.AssignStandardRequest) *errors.AppError {
-	jps := &entity.JobPositionStandard{
-		JobDescriptionID: positionID,
-		JobStandardID:    req.JobStandardID,
-	}
-	if err := s.repo.AssignStandardToPosition(ctx, jps); err != nil {
-		logger.Error("PayrollService:AssignStandardToPosition:Error %v", err)
-		return errors.NewAppError(errors.ErrInternalServer, "failed to assign standard to position", err)
-	}
-	return nil
-}
-
-func (s *PayrollService) GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]dto.JobPositionStandardResponse, *errors.AppError) {
-	list, err := s.repo.GetStandardsByPosition(ctx, positionID)
-	if err != nil {
-		logger.Error("PayrollService:GetStandardsByPosition:Error %v", err)
-		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch standards by position", err)
-	}
-	return mapper.ToJobPositionStandardDTOList(list), nil
-}
-
-func (s *PayrollService) RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) *errors.AppError {
-	if err := s.repo.RemoveStandardFromPosition(ctx, positionID, standardID); err != nil {
-		logger.Error("PayrollService:RemoveStandardFromPosition:Error %v", err)
-		return errors.NewAppError(errors.ErrInternalServer, "failed to remove standard from position", err)
-	}
-	return nil
-}
 
 // ==========================================
 // Employee Competencies Service

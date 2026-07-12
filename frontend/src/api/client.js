@@ -76,18 +76,6 @@ export const jobPositionsAPI = {
     client.post(`/private/payroll/job-positions/${id || 'new'}/fetch-market-salary`, data),
 };
 
-// ===================== JOB STANDARDS =====================
-export const jobStandardsAPI = {
-  list: (params = {}) =>
-    client.get('/private/payroll/job-standards', { params: { page_number: 1, page_size: 20, ...params } }),
-  create: (data) =>
-    client.post('/private/payroll/job-standards', data),
-  update: (id, data) =>
-    client.put(`/private/payroll/job-standards/${id}`, data),
-  delete: (id) =>
-    client.delete(`/private/payroll/job-standards/${id}`),
-};
-
 // ===================== COMPETENCIES =====================
 export const competenciesAPI = {
   list: (params = {}) =>

@@ -48,9 +48,7 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	payrollRoutes.POST("/user-profiles/:id/competencies", r.PayrollController.AssignEmployeeCompetencies)
 	payrollRoutes.GET("/user-profiles/:id/competencies", r.PayrollController.GetCompetenciesByEmployee)
 	payrollRoutes.DELETE("/user-profiles/:id/competencies/:competency_id", r.PayrollController.RemoveEmployeeCompetency)
-	payrollRoutes.POST("/job-positions/:id/standards", r.PayrollController.AssignStandardToPosition)
-	payrollRoutes.GET("/job-positions/:id/standards", r.PayrollController.GetStandardsByPosition)
-	payrollRoutes.DELETE("/job-positions/:id/standards/:standard_id", r.PayrollController.RemoveStandardFromPosition)
+
 
 	// User Profiles endpoints
 	payrollRoutes.POST("/user-profiles", r.PayrollController.CreateUserProfile)
@@ -66,12 +64,7 @@ func (r *PayrollRouter) Setup(e *echo.Echo, middlewareInstance *middleware.Middl
 	payrollRoutes.PUT("/contracts/:id", r.PayrollController.UpdateContract)
 	payrollRoutes.DELETE("/contracts/:id", r.PayrollController.DeleteContract)
 
-	// Job Standards endpoints
-	payrollRoutes.POST("/job-standards", r.PayrollController.CreateJobStandard)
-	payrollRoutes.GET("/job-standards", r.PayrollController.GetJobStandards)
-	payrollRoutes.GET("/job-standards/:id", r.PayrollController.GetJobStandardByID)
-	payrollRoutes.PUT("/job-standards/:id", r.PayrollController.UpdateJobStandard)
-	payrollRoutes.DELETE("/job-standards/:id", r.PayrollController.DeleteJobStandard)
+
 
 	// Competency Evaluations endpoints
 	payrollRoutes.POST("/evaluations", r.PayrollController.CreateBatchEvaluations)

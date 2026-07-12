@@ -37,7 +37,6 @@ const navSections = [
   {
     title: 'Đánh giá',
     items: [
-      { path: '/job-standards', label: 'Tiêu chuẩn' },
       { path: '/competencies', label: 'Năng lực' },
       { path: '/job-positions', label: 'Vị trí công việc' }
     ]

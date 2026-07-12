@@ -125,11 +125,7 @@ func SeedPermissions(ctx context.Context, db database.Database) error {
 		{Name: "Phòng ban", Slug: "department::edit", Resource: "departments_fe", Action: "Chỉnh sửa", IsSystem: false},
 		{Name: "Phòng ban", Slug: "department::delete", Resource: "departments_fe", Action: "Xoá", IsSystem: false},
 		{Name: "Phòng ban", Slug: "department::review", Resource: "departments_fe", Action: "Xét duyệt", IsSystem: false},
-		// Tiêu chuẩn công việc
-		{Name: "Tiêu chuẩn công việc", Slug: "jobStandard::read", Resource: "job_standards_fe", Action: "Xem", IsSystem: false},
-		{Name: "Tiêu chuẩn công việc", Slug: "jobStandard::edit", Resource: "job_standards_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Tiêu chuẩn công việc", Slug: "jobStandard::delete", Resource: "job_standards_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Tiêu chuẩn công việc", Slug: "jobStandard::review", Resource: "job_standards_fe", Action: "Xét duyệt", IsSystem: false},
+
 		// Hồ sơ nhân sự
 		{Name: "Hồ sơ nhân sự", Slug: "userProfile::read", Resource: "user_profiles_fe", Action: "Xem", IsSystem: false},
 		{Name: "Hồ sơ nhân sự", Slug: "userProfile::readAll", Resource: "user_profiles_fe", Action: "Xem tất cả", IsSystem: false},

@@ -7,7 +7,6 @@ import EmployeesPage from './pages/EmployeesPage.jsx';
 import PayrollPage from './pages/PayrollPage.jsx';
 import PayrollRunPage from './pages/PayrollRunPage.jsx';
 import JobPositionsPage from './pages/JobPositionsPage.jsx';
-import JobStandardsPage from './pages/JobStandardsPage.jsx';
 import CompetenciesPage from './pages/CompetenciesPage.jsx';
 import DepartmentsPage from './pages/DepartmentsPage.jsx';
 import ContractsPage from './pages/ContractsPage.jsx';
@@ -56,7 +55,6 @@ function App() {
             <Route path="contracts" element={<ContractsPage />} />
             <Route path="departments" element={<DepartmentsPage />} />
             <Route path="job-positions" element={<JobPositionsPage />} />
-            <Route path="job-standards" element={<JobStandardsPage />} />
             <Route path="competencies" element={<CompetenciesPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -51,12 +51,7 @@ type PayrollServiceInterface interface {
 	UpdateContract(ctx context.Context, id uuid.UUID, req *dto.UpdateContractRequest) *errors.AppError
 	DeleteContract(ctx context.Context, id uuid.UUID) *errors.AppError
 
-	// Job Standards
-	CreateJobStandard(ctx context.Context, req *dto.CreateJobStandardRequest) (*dto.JobStandardResponse, *errors.AppError)
-	GetJobStandards(ctx context.Context, params params.QueryParams) (*dto.PaginatedJobStandardDTO, *errors.AppError)
-	GetJobStandardByID(ctx context.Context, id uuid.UUID) (*dto.JobStandardResponse, *errors.AppError)
-	UpdateJobStandard(ctx context.Context, id uuid.UUID, req *dto.UpdateJobStandardRequest) *errors.AppError
-	DeleteJobStandard(ctx context.Context, id uuid.UUID) *errors.AppError
+
 
 	// Competencies (Dictionary)
 	CreateCompetency(ctx context.Context, req *dto.CreateCompetencyRequest) (*dto.CompetencyResponse, *errors.AppError)
@@ -72,10 +67,7 @@ type PayrollServiceInterface interface {
 	UpdateEvaluation(ctx context.Context, id uuid.UUID, req *dto.CompetencyScoreInput) *errors.AppError
 	DeleteEvaluation(ctx context.Context, id uuid.UUID) *errors.AppError
 
-	// Job Position Standards
-	AssignStandardToPosition(ctx context.Context, positionID uuid.UUID, req *dto.AssignStandardRequest) *errors.AppError
-	GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]dto.JobPositionStandardResponse, *errors.AppError)
-	RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) *errors.AppError
+
 
 	// Employee Competencies
 	AssignEmployeeCompetencies(ctx context.Context, userProfileID uuid.UUID, req *dto.AssignEmployeeCompetenciesRequest) *errors.AppError

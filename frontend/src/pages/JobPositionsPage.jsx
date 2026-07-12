@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { jobPositionsAPI, jobStandardsAPI, departmentsAPI, settingsAPI } from '../api/client.js';
+import { jobPositionsAPI, departmentsAPI, settingsAPI } from '../api/client.js';
 import { Table } from '../components/Table.jsx';
 import { Modal } from '../components/Modal.jsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
@@ -35,12 +35,10 @@ export function JobPositionsPage() {
   const [loading, setLoading] = useState(false);
 
   const [departments, setDepartments] = useState([]);
-  const [allStandards, setAllStandards] = useState([]);
 
   // Modals
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [standardsOpen, setStandardsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [form, setForm] = useState(emptyForm);
@@ -54,12 +52,6 @@ export function JobPositionsPage() {
   const [scrapingActive, setScrapingActive] = useState(false);
   const [scrapedJobs, setScrapedJobs] = useState([]);
   const [scrapingSource, setScrapingSource] = useState('TopCV');
-
-  // Standards Management for selected Position
-  const [assignedStandards, setAssignedStandards] = useState([]);
-  const [standardsLoading, setStandardsLoading] = useState(false);
-  const [selectedStandardToAssign, setSelectedStandardToAssign] = useState('');
-  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     loadMeta();
@@ -79,13 +71,11 @@ export function JobPositionsPage() {
 
   const loadMeta = async () => {
     try {
-      const [deptRes, stdRes, settingsRes] = await Promise.allSettled([
+      const [deptRes, settingsRes] = await Promise.allSettled([
         departmentsAPI.list({ page_size: 200 }),
-        jobStandardsAPI.list({ page_size: 200 }),
         settingsAPI.list(),
       ]);
       if (deptRes.status === 'fulfilled') setDepartments(deptRes.value.data?.data?.items || []);
-      if (stdRes.status === 'fulfilled') setAllStandards(stdRes.value.data?.data?.items || []);
       if (settingsRes.status === 'fulfilled') {
         const settings = settingsRes.value.data?.data || [];
         const kSetting = settings.find(s => s.key === 'payroll_k_factor');
@@ -379,10 +369,7 @@ export function JobPositionsPage() {
     }
   ];
 
-  // Available standards to assign (those not already assigned)
-  const availableStandards = allStandards.filter(
-    std => !assignedStandards.some(assigned => assigned.job_standard_id === std.id)
-  );
+
 
 
 
@@ -484,80 +471,7 @@ export function JobPositionsPage() {
         handleScrapeMarketSalary={handleScrapeMarketSalary}
       />
 
-      {/* Standards Assignment Modal */}
-      <Modal 
-        isOpen={standardsOpen} 
-        onClose={() => setStandardsOpen(false)} 
-        title={`Gán tiêu chuẩn P1 — ${selected?.name || ''}`} 
-        size="lg"
-        footer={<button className="btn btn-secondary" onClick={() => setStandardsOpen(false)}>Đóng</button>}
-      >
-        <div className="form-group" style={{ marginBottom: 20 }}>
-          <label className="form-label">Thêm tiêu chuẩn mới cho vị trí này</label>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <select 
-              className="form-control" 
-              value={selectedStandardToAssign} 
-              onChange={e => setSelectedStandardToAssign(e.target.value)}
-              style={{ flex: 1 }}
-            >
-              <option value="">-- Chọn tiêu chuẩn công việc --</option>
-              {availableStandards.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.standard_code} — {s.name} ({s.allowance_value.toLocaleString('vi-VN')}đ)
-                </option>
-              ))}
-            </select>
-            <button className="btn btn-primary" onClick={handleAssignStandard} disabled={assigning || !selectedStandardToAssign}>
-              {assigning ? 'Đang gán...' : 'Gán'}
-            </button>
-          </div>
-        </div>
 
-        <div className="section-title" style={{ fontSize: '14px', fontWeight: 600, marginBottom: 12 }}>
-          Tiêu chuẩn đang áp dụng ({assignedStandards.length})
-        </div>
-
-        {standardsLoading ? (
-          <div className="loading-center"><span className="spinner" /> Đang tải...</div>
-        ) : assignedStandards.length > 0 ? (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Mã</th>
-                  <th>Tên tiêu chuẩn</th>
-                  <th>Phụ cấp</th>
-                  <th style={{ width: 80 }}>Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {assignedStandards.map((s) => (
-                  <tr key={s.job_standard_id || s.id}>
-                    <td><Badge color="green">{s.standard_code}</Badge></td>
-                    <td className="font-bold">{s.standard_name}</td>
-                    <td className="text-success font-bold">
-                      {s.allowance_value?.toLocaleString('vi-VN')}đ
-                    </td>
-                    <td>
-                      <button 
-                        className="btn btn-danger btn-sm" 
-                        onClick={() => handleRemoveStandard(s.job_standard_id || s.id)}
-                      >
-                        Gỡ
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-muted" style={{ fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-            Vị trí này chưa được gán tiêu chuẩn lương cứng nào.
-          </p>
-        )}
-      </Modal>
 
       {/* Delete Confirm */}
       <ConfirmDialog
