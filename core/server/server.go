@@ -102,11 +102,12 @@ func initServer() (*Server, error) {
 		cfg.Redis.DB,
 	)
 
-	// Initialize NATS JetStream client (fail-fast: check-in writes now depend on it)
-	natsClient, err := messaging.NewNatsClient(cfg.Nats.Url)
+	// Initialize NATS JetStream client (optional for local dev: log warning if missing)
+	var natsClient *messaging.NatsClient
+	natsClient, err = messaging.NewNatsClient(cfg.Nats.Url)
 	if err != nil {
-		logger.Error("Failed to connect to NATS", "error", err)
-		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
+		logger.Warn("NATS connection failed, running in local development mode without NATS JetStream", "error", err)
+		natsClient = nil
 	}
 
 	// Initialize in-memory cache

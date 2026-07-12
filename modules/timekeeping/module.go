@@ -28,11 +28,15 @@ func Init(db database.Database, redisCache *cache.Cache, natsClient *messaging.N
 	pRepo := payrollRepo.NewPayrollRepository(db)
 	svc := service.NewTimekeepingService(repo, pRepo, redisCache, natsClient, natsCfg.StreamName, natsCfg.CheckinSubject, natsCfg.DurableConsumer)
 
-	ctx := context.Background()
-	if err := svc.EnsureStreamAndConsumer(ctx); err != nil {
-		logger.Error("timekeeping: failed to set up JetStream checkin stream/consumer", "error", err)
-	} else if err := svc.StartCheckinConsumer(ctx); err != nil {
-		logger.Error("timekeeping: failed to start checkin consumer", "error", err)
+	if natsClient != nil {
+		ctx := context.Background()
+		if err := svc.EnsureStreamAndConsumer(ctx); err != nil {
+			logger.Error("timekeeping: failed to set up JetStream checkin stream/consumer", "error", err)
+		} else if err := svc.StartCheckinConsumer(ctx); err != nil {
+			logger.Error("timekeeping: failed to start checkin consumer", "error", err)
+		}
+	} else {
+		logger.Warn("timekeeping: NATS client is nil, JetStream check-in consumer startup bypassed")
 	}
 
 	return &TimekeepingModule{

@@ -4,35 +4,35 @@
 
 :root {
   /* Colors */
-  --bg-primary: #f8fafc;
+  --bg-primary: #f0f7f4;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --bg-input: #f8fafc;
-  --bg-overlay: rgba(15, 23, 42, 0.4);
-  --sidebar-bg: #ffffff;
+  --bg-card-hover: #e8f5f0;
+  --bg-input: #f4faf7;
+  --bg-overlay: rgba(10, 46, 36, 0.4);
+  --sidebar-bg: #f4faf7;
   --sidebar-width: 260px;
   --topbar-height: 60px;
 
-  /* Accent Colors */
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-light: rgba(37, 99, 235, 0.08);
-  --accent-glow: rgba(37, 99, 235, 0.15);
+  /* Accent Colors (Mint Green) */
+  --accent: #10b981;
+  --accent-hover: #059669;
+  --accent-light: rgba(16, 185, 129, 0.08);
+  --accent-glow: rgba(16, 185, 129, 0.15);
 
   /* Text */
   --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --text-accent: #2563eb;
+  --text-secondary: #334155;
+  --text-muted: #475569;
+  --text-accent: #059669;
 
   /* Borders */
-  --border-color: rgba(15, 23, 42, 0.08);
-  --border-focus: rgba(37, 99, 235, 0.4);
+  --border-color: rgba(16, 185, 129, 0.12);
+  --border-focus: rgba(16, 185, 129, 0.4);
 
   /* Status Colors */
-  --success: #16a34a;
-  --success-light: rgba(22, 163, 74, 0.08);
+  --success: #10b981;
+  --success-light: rgba(16, 185, 129, 0.08);
   --error: #dc2626;
   --error-light: rgba(220, 38, 38, 0.08);
   --warning: #d97706;
@@ -41,10 +41,10 @@
   --info-light: rgba(8, 145, 178, 0.08);
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03);
-  --shadow-lg: 0 12px 24px rgba(15, 23, 42, 0.08), 0 4px 8px rgba(15, 23, 42, 0.04);
-  --shadow-accent: 0 4px 12px rgba(37, 99, 235, 0.15);
+  --shadow-sm: 0 1px 2px rgba(10, 46, 36, 0.05);
+  --shadow-md: 0 4px 12px rgba(10, 46, 36, 0.05), 0 1px 3px rgba(10, 46, 36, 0.03);
+  --shadow-lg: 0 12px 24px rgba(10, 46, 36, 0.08), 0 4px 8px rgba(10, 46, 36, 0.04);
+  --shadow-accent: 0 4px 12px rgba(16, 185, 129, 0.15);
 
   /* Radius */
   --radius-sm: 6px;

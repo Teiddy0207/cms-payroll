@@ -232,10 +232,26 @@ func (s *TimekeepingServiceImpl) ProcessCheckIn(ctx context.Context, req *dto.Ch
 		return nil, errors.NewAppError(errors.ErrInternalServer, "Không thể xử lý dữ liệu check-in", errMarshal)
 	}
 
-	_, errPub := s.natsClient.JS.Publish(ctx, s.checkinSubject, payload, jetstream.WithMsgID(eventID.String()))
-	if errPub != nil {
-		logger.Error("ProcessCheckIn: publish to JetStream failed", "error", errPub, "employee_code", req.EmployeeCode)
-		return nil, errors.NewAppError(errors.ErrInternalServer, "Hệ thống chấm công đang tạm thời gián đoạn, vui lòng thử lại", errPub)
+	if s.natsClient != nil {
+		_, errPub := s.natsClient.JS.Publish(ctx, s.checkinSubject, payload, jetstream.WithMsgID(eventID.String()))
+		if errPub != nil {
+			logger.Error("ProcessCheckIn: publish to JetStream failed", "error", errPub, "employee_code", req.EmployeeCode)
+			return nil, errors.NewAppError(errors.ErrInternalServer, "Hệ thống chấm công đang tạm thời gián đoạn, vui lòng thử lại", errPub)
+		}
+	} else {
+		// Local development fallback: write directly to PostgreSQL/ClickHouse logs
+		logger.Warn("ProcessCheckIn: NATS JetStream is disabled. Writing check-in directly to database.", "employee_code", req.EmployeeCode)
+		log := &entity.AttendanceLog{
+			ID:           uuid.New(),
+			EventID:      eventID,
+			EmployeeCode: req.EmployeeCode,
+			Timestamp:    req.Timestamp,
+			LocationGPS:  req.LocationGPS,
+			DeviceId:     req.DeviceId,
+		}
+		if errCreate := s.repo.CreateAttendanceLog(ctx, log); errCreate != nil {
+			return nil, errors.NewAppError(errors.ErrInternalServer, "Lỗi ghi nhận chấm công trực tiếp", errCreate)
+		}
 	}
 
 	_ = s.cache.GetClient().Set(ctx, redisKey, "1", 5*time.Minute).Err()

@@ -15,6 +15,10 @@ import (
 // EnsureStreamAndConsumer creates (or updates) the JetStream stream and durable
 // pull consumer backing the check-in pipeline. Safe to call on every startup.
 func (s *TimekeepingServiceImpl) EnsureStreamAndConsumer(ctx context.Context) error {
+	if s.natsClient == nil {
+		logger.Warn("EnsureStreamAndConsumer: NATS client is nil, bypassing setup")
+		return nil
+	}
 	_, err := s.natsClient.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:       s.streamName,
 		Subjects:   []string{s.checkinSubject},
@@ -43,6 +47,10 @@ func (s *TimekeepingServiceImpl) EnsureStreamAndConsumer(ctx context.Context) er
 // and persists each one to attendance_logs. Message handling runs in the
 // background via the underlying NATS client's goroutines.
 func (s *TimekeepingServiceImpl) StartCheckinConsumer(ctx context.Context) error {
+	if s.natsClient == nil {
+		logger.Warn("StartCheckinConsumer: NATS client is nil, bypassing startup")
+		return nil
+	}
 	cons, err := s.natsClient.JS.Consumer(ctx, s.streamName, s.durableConsumer)
 	if err != nil {
 		return err
