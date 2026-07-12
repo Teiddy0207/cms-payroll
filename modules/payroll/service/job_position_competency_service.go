@@ -17,8 +17,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
-
 // ==========================================
 // Employee Competencies Service
 // ==========================================
@@ -234,32 +232,6 @@ func (s *PayrollService) RunSalaryCalculation(ctx context.Context, req *dto.Sala
 	}, nil
 }
 
-func parsePeriodDates(period string) (time.Time, time.Time, int, int, error) {
-	t, err := time.Parse("2006-01", period)
-	if err != nil {
-		return time.Time{}, time.Time{}, 0, 0, err
-	}
-	start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
-	return start, end, int(t.Month()), t.Year(), nil
-}
-
-func convertToFloat64(val interface{}) (float64, bool) {
-	switch v := val.(type) {
-	case float64:
-		return v, true
-	case float32:
-		return float64(v), true
-	case int:
-		return float64(v), true
-	case int64:
-		return float64(v), true
-	case int32:
-		return float64(v), true
-	}
-	return 0, false
-}
-
 func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto.SalaryCalculationRequest) (string, *errors.AppError) {
 	if req == nil || req.Period == "" {
 		return "", errors.NewAppError(errors.ErrInvalidInput, "period is required", nil)
@@ -313,7 +285,12 @@ func (s *PayrollService) RunSalaryCalculationAsync(ctx context.Context, req *dto
 		s.cache.GetClient().HSet(bgCtx, jobKey, "total_employees", total)
 
 		formulas, _ := s.repo.GetPayrollFormulasByPeriod(bgCtx, start, end)
-		sortedFormulas := sortFormulas(formulas)
+		sortedFormulas, sortErr := sortFormulas(formulas)
+		if sortErr != nil {
+			s.cache.GetClient().HSet(bgCtx, jobKey, "status", "FAILED", "error", sortErr.Error())
+			s.cache.Del(bgCtx, lockKey)
+			return
+		}
 
 		numWorkers := 5
 		if total < numWorkers {
@@ -397,10 +374,13 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 		"net_salary":   net,
 	}
 
+	hasGrossFormula := false
 	hasTaxFormula := false
 	hasNetFormula := false
 	for _, f := range sortedFormulas {
-		if f.VariableName == "TAX" || f.VariableName == "tax" {
+		if f.VariableName == "GROSS_SALARY" || f.VariableName == "gross_salary" {
+			hasGrossFormula = true
+		} else if f.VariableName == "TAX" || f.VariableName == "tax" {
 			hasTaxFormula = true
 		} else if f.VariableName == "NET_SALARY" || f.VariableName == "net_salary" {
 			hasNetFormula = true
@@ -438,6 +418,25 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 					env["NET_SALARY"] = net
 					env["net_salary"] = net
 				}
+			} else if f.VariableName == "P3" || f.VariableName == "p3" {
+				p3 = val
+				env["P3"] = val
+				env["p3"] = val
+				if !hasGrossFormula {
+					gross = p1 + p2 + p3
+					env["GROSS_SALARY"] = gross
+					env["gross_salary"] = gross
+					if !hasTaxFormula {
+						tax = gross * 0.1
+						env["TAX"] = tax
+						env["tax"] = tax
+					}
+					if !hasNetFormula {
+						net = gross - tax
+						env["NET_SALARY"] = net
+						env["net_salary"] = net
+					}
+				}
 			} else if f.VariableName == "TAX" || f.VariableName == "tax" {
 				tax = val
 				env["TAX"] = val
@@ -463,6 +462,13 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 					Amount:      val,
 				})
 			}
+		}
+	}
+
+	for i := range details {
+		if details[i].Component == "P3" {
+			details[i].Amount = p3
+			break
 		}
 	}
 
@@ -541,38 +547,4 @@ func (s *PayrollService) GetSavedPayrollRecords(ctx context.Context, period stri
 	}
 
 	return items, nil
-}
-
-func sortFormulas(formulas []entity.PayrollFormula) []entity.PayrollFormula {
-	var other []entity.PayrollFormula
-	var gross *entity.PayrollFormula
-	var tax *entity.PayrollFormula
-	var net *entity.PayrollFormula
-
-	for i := range formulas {
-		f := formulas[i]
-		switch f.VariableName {
-		case "GROSS_SALARY":
-			gross = &formulas[i]
-		case "TAX":
-			tax = &formulas[i]
-		case "NET_SALARY":
-			net = &formulas[i]
-		default:
-			other = append(other, f)
-		}
-	}
-
-	result := make([]entity.PayrollFormula, 0, len(formulas))
-	result = append(result, other...)
-	if gross != nil {
-		result = append(result, *gross)
-	}
-	if tax != nil {
-		result = append(result, *tax)
-	}
-	if net != nil {
-		result = append(result, *net)
-	}
-	return result
 }

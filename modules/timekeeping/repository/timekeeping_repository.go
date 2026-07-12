@@ -23,10 +23,11 @@ func NewTimekeepingRepository(db database.Database) TimekeepingRepository {
 
 func (r *TimekeepingRepositoryImpl) CreateAttendanceLog(ctx context.Context, log *entity.AttendanceLog) error {
 	query := `
-		INSERT INTO attendance_logs (id, employee_code, timestamp, location_gps, device_id, created_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())
+		INSERT INTO attendance_logs (id, event_id, employee_code, timestamp, location_gps, device_id, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		ON CONFLICT (event_id) DO NOTHING
 	`
-	_, err := r.DB.SQLx().ExecContext(ctx, query, log.ID, log.EmployeeCode, log.Timestamp, log.LocationGPS, log.DeviceId)
+	_, err := r.DB.SQLx().ExecContext(ctx, query, log.ID, log.EventID, log.EmployeeCode, log.Timestamp, log.LocationGPS, log.DeviceId)
 	return err
 }
 

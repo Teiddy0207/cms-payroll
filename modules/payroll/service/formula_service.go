@@ -38,6 +38,29 @@ func (s *PayrollService) validateFormulaExpression(ctx context.Context, expressi
 	return err
 }
 
+// checkNoCycle re-runs the topological sort across all existing formulas plus the
+// candidate being created/updated, rejecting the save if it introduces a circular
+// dependency. excludeID identifies the formula being edited (uuid.Nil for create).
+func (s *PayrollService) checkNoCycle(ctx context.Context, candidate entity.PayrollFormula, excludeID uuid.UUID) error {
+	formulas, err := s.repo.GetPayrollFormulas(ctx)
+	if err != nil {
+		return nil
+	}
+
+	set := make([]entity.PayrollFormula, 0, len(formulas)+1)
+	for _, f := range formulas {
+		if f.ID != excludeID {
+			set = append(set, f)
+		}
+	}
+	set = append(set, candidate)
+
+	if _, err := sortFormulas(set); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *PayrollService) CreatePayrollFormula(ctx context.Context, req *dto.CreateFormulaRequest) (*dto.FormulaResponse, *errors.AppError) {
 	if req == nil {
 		return nil, errors.NewAppError(errors.ErrInvalidInput, "request is required", nil)
@@ -48,6 +71,11 @@ func (s *PayrollService) CreatePayrollFormula(ctx context.Context, req *dto.Crea
 	}
 
 	formula := mapper.ToFormulaEntity(req)
+
+	if err := s.checkNoCycle(ctx, *formula, uuid.Nil); err != nil {
+		return nil, errors.NewAppError(errors.ErrInvalidInput, "Công thức tạo ra vòng lặp phụ thuộc: "+err.Error(), err)
+	}
+
 	created, err := s.repo.CreatePayrollFormula(ctx, formula)
 	if err != nil {
 		return nil, errors.NewAppError(errors.ErrInternalServer, "failed to create payroll formula", err)
@@ -74,11 +102,16 @@ func (s *PayrollService) UpdatePayrollFormula(ctx context.Context, id uuid.UUID,
 	}
 
 	formula := &entity.PayrollFormula{
+		ID:           id,
 		VariableName: req.VariableName,
 		Expression:   req.Expression,
 		StartDate:    req.StartDate,
 		EndDate:      req.EndDate,
 		Description:  req.Description,
+	}
+
+	if err := s.checkNoCycle(ctx, *formula, id); err != nil {
+		return errors.NewAppError(errors.ErrInvalidInput, "Công thức tạo ra vòng lặp phụ thuộc: "+err.Error(), err)
 	}
 
 	err := s.repo.UpdatePayrollFormula(ctx, id, formula)

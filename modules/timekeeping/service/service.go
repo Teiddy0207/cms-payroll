@@ -26,4 +26,12 @@ type TimekeepingService interface {
 	RegisterFaceTemplate(ctx context.Context, req *dto.RegisterFaceRequest) *errors.AppError
 	GetFaceTemplates(ctx context.Context) ([]dto.FaceTemplateResponse, *errors.AppError)
 	DeleteFaceTemplate(ctx context.Context, code string) *errors.AppError
+
+	// EnsureStreamAndConsumer creates/updates the JetStream stream and durable
+	// consumer used for the check-in pipeline. Call once at startup.
+	EnsureStreamAndConsumer(ctx context.Context) error
+	// StartCheckinConsumer starts consuming check-in events and persisting them
+	// to attendance_logs. Blocks until the consumer context is set up; message
+	// handling itself runs in the background.
+	StartCheckinConsumer(ctx context.Context) error
 }

@@ -6,6 +6,7 @@ import (
 	"cal-salary/core/database"
 	inmemcache "cal-salary/core/inmem_cache"
 	"cal-salary/core/logger"
+	"cal-salary/core/messaging"
 	"cal-salary/core/middleware"
 	"cal-salary/core/seed"
 	coreStorage "cal-salary/core/storage"
@@ -28,10 +29,11 @@ import (
 )
 
 type Server struct {
-	echo  *echo.Echo
-	addr  string
-	cache *cache.Cache
-	db    database.Database
+	echo       *echo.Echo
+	addr       string
+	cache      *cache.Cache
+	db         database.Database
+	natsClient *messaging.NatsClient
 }
 
 func initEnvironment() (config.Environment, error) {
@@ -99,6 +101,13 @@ func initServer() (*Server, error) {
 		cfg.Redis.Password,
 		cfg.Redis.DB,
 	)
+
+	// Initialize NATS JetStream client (fail-fast: check-in writes now depend on it)
+	natsClient, err := messaging.NewNatsClient(cfg.Nats.Url)
+	if err != nil {
+		logger.Error("Failed to connect to NATS", "error", err)
+		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
+	}
 
 	// Initialize in-memory cache
 	inmemCache := inmemcache.NewInMemoryCache()
@@ -202,14 +211,15 @@ func initServer() (*Server, error) {
 	payrollMod := payroll.Init(db, redisCache)
 	payrollMod.SetupRouter(e, middlewareInstance, activityLogSvc)
 
-	timekeepingMod := timekeeping.Init(db, redisCache)
+	timekeepingMod := timekeeping.Init(db, redisCache, natsClient, cfg.Nats)
 	timekeepingMod.SetupRouter(e, middlewareInstance, activityLogSvc)
 
 	return &Server{
-		echo:  e,
-		addr:  fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
-		cache: redisCache,
-		db:    db,
+		echo:       e,
+		addr:       fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
+		cache:      redisCache,
+		db:         db,
+		natsClient: natsClient,
 	}, nil
 }
 
@@ -246,6 +256,11 @@ func (s *Server) start() error {
 	// Close Redis connection
 	if err := s.cache.Close(); err != nil {
 		logger.Error("Failed to close Redis connection", "error", err)
+	}
+
+	// Drain NATS connection (flushes in-flight publishes/acks before closing)
+	if s.natsClient != nil {
+		s.natsClient.Close()
 	}
 
 	logger.Info("Server shutdown complete")

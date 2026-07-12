@@ -359,6 +359,12 @@ CREATE TABLE IF NOT EXISTS attendance_logs (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Idempotency key for the JetStream check-in consumer (ON CONFLICT DO NOTHING dedup).
+ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS event_id UUID;
+UPDATE attendance_logs SET event_id = id WHERE event_id IS NULL;
+ALTER TABLE attendance_logs ALTER COLUMN event_id SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_logs_event_id ON attendance_logs(event_id);
+
 -- 28. Employee Face Templates
 CREATE TABLE IF NOT EXISTS employee_face_templates (
     id UUID PRIMARY KEY,

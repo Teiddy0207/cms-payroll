@@ -5,6 +5,7 @@ import (
 	"cal-salary/core/cache"
 	"cal-salary/core/errors"
 	"cal-salary/core/logger"
+	"cal-salary/core/messaging"
 	"cal-salary/core/params"
 	payrollEntity "cal-salary/modules/payroll/entity"
 	payrollRepo "cal-salary/modules/payroll/repository"
@@ -21,19 +22,37 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type TimekeepingServiceImpl struct {
-	repo        repository.TimekeepingRepository
-	payrollRepo *payrollRepo.PayrollRepository
-	cache       *cache.Cache
+	repo            repository.TimekeepingRepository
+	payrollRepo     *payrollRepo.PayrollRepository
+	cache           *cache.Cache
+	natsClient      *messaging.NatsClient
+	streamName      string
+	checkinSubject  string
+	durableConsumer string
+	consumeCtx      jetstream.ConsumeContext
 }
 
-func NewTimekeepingService(repo repository.TimekeepingRepository, payrollRepo *payrollRepo.PayrollRepository, cache *cache.Cache) TimekeepingService {
+func NewTimekeepingService(
+	repo repository.TimekeepingRepository,
+	payrollRepo *payrollRepo.PayrollRepository,
+	cache *cache.Cache,
+	natsClient *messaging.NatsClient,
+	streamName string,
+	checkinSubject string,
+	durableConsumer string,
+) TimekeepingService {
 	return &TimekeepingServiceImpl{
-		repo:        repo,
-		payrollRepo: payrollRepo,
-		cache:       cache,
+		repo:            repo,
+		payrollRepo:     payrollRepo,
+		cache:           cache,
+		natsClient:      natsClient,
+		streamName:      streamName,
+		checkinSubject:  checkinSubject,
+		durableConsumer: durableConsumer,
 	}
 }
 
@@ -200,22 +219,29 @@ func (s *TimekeepingServiceImpl) ProcessCheckIn(ctx context.Context, req *dto.Ch
 		}, nil
 	}
 
-	log := &entity.AttendanceLog{
-		ID:           uuid.New(),
+	eventID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprintf("%s|%s|%s", req.EmployeeCode, req.DeviceId, req.Timestamp.UTC().Format(time.RFC3339Nano))))
+
+	payload, errMarshal := json.Marshal(dto.CheckinEvent{
+		EventID:      eventID,
 		EmployeeCode: req.EmployeeCode,
 		Timestamp:    req.Timestamp,
 		LocationGPS:  req.LocationGPS,
 		DeviceId:     req.DeviceId,
+	})
+	if errMarshal != nil {
+		return nil, errors.NewAppError(errors.ErrInternalServer, "Không thể xử lý dữ liệu check-in", errMarshal)
 	}
 
-	if errCreate := s.repo.CreateAttendanceLog(ctx, log); errCreate != nil {
-		return nil, errors.NewAppError(errors.ErrInternalServer, "Không thể lưu thông tin check-in", errCreate)
+	_, errPub := s.natsClient.JS.Publish(ctx, s.checkinSubject, payload, jetstream.WithMsgID(eventID.String()))
+	if errPub != nil {
+		logger.Error("ProcessCheckIn: publish to JetStream failed", "error", errPub, "employee_code", req.EmployeeCode)
+		return nil, errors.NewAppError(errors.ErrInternalServer, "Hệ thống chấm công đang tạm thời gián đoạn, vui lòng thử lại", errPub)
 	}
 
 	_ = s.cache.GetClient().Set(ctx, redisKey, "1", 5*time.Minute).Err()
 
 	return &dto.CheckinResponse{
-		Message:      "Check-in khuôn mặt thành công!",
+		Message:      "Check-in đã được ghi nhận, đang xử lý",
 		Timestamp:    req.Timestamp,
 		EmployeeCode: matchedEmployeeCode,
 		FullName:     matchedFullName,
@@ -545,7 +571,7 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 				checkInMin := checkIn.Minute()
 
 				inTimeVal := checkInHour*60 + checkInMin
-				limitInVal := 9*60 // 09:00 Grace Limit
+				limitInVal := 9 * 60 // 09:00 Grace Limit
 
 				isLate := inTimeVal > limitInVal
 
