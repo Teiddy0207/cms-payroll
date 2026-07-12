@@ -99,10 +99,40 @@ func (r *PayrollRepository) UpsertPayrollRecord(ctx context.Context, record *ent
 	return tx.Commit()
 }
 
-func (r *PayrollRepository) GetPayrollRecords(ctx context.Context, periodID uuid.UUID) ([]entity.PayrollRecord, error) {
+func (r *PayrollRepository) GetPayrollRecords(ctx context.Context, periodID uuid.UUID, params params.QueryParams) ([]entity.PayrollRecord, error) {
 	var list []entity.PayrollRecord
-	query := `SELECT id, period_id, employee_id, p1_value, p2_value, p3_value, gross_salary, tax, net_salary, status, created_at, updated_at FROM payroll_records WHERE period_id = $1`
-	err := r.DB.SQLx().SelectContext(ctx, &list, query, periodID)
+
+	baseQuery := `
+		FROM payroll_records pr
+		JOIN user_profiles u ON pr.employee_id = u.id
+	`
+
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
+
+	conditions = append(conditions, fmt.Sprintf("pr.period_id = $%d", argIndex))
+	args = append(args, periodID)
+	argIndex++
+
+	if deptIDStr, ok := params.Filters["department_id"]; ok && deptIDStr != "" {
+		if deptID, err := uuid.Parse(deptIDStr); err == nil {
+			conditions = append(conditions, fmt.Sprintf("u.department_id = $%d", argIndex))
+			args = append(args, deptID)
+			argIndex++
+		}
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	dataQuery := `
+		SELECT pr.id, pr.period_id, pr.employee_id, pr.p1_value, pr.p2_value, pr.p3_value, pr.gross_salary, pr.tax, pr.net_salary, pr.status, pr.created_at, pr.updated_at
+	` + baseQuery + whereClause + ` ORDER BY u.full_name ASC`
+
+	err := r.DB.SQLx().SelectContext(ctx, &list, dataQuery, args...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []entity.PayrollRecord{}, nil
