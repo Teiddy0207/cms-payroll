@@ -109,10 +109,23 @@ func (r *PayrollRepository) GetPayrollRecords(ctx context.Context, periodID uuid
 	return list, nil
 }
 
-func (r *PayrollRepository) GetPayrollRecordDetails(ctx context.Context, recordID uuid.UUID) ([]entity.PayrollRecordDetail, error) {
+func (r *PayrollRepository) GetPayrollRecordDetails(ctx context.Context, recordID uuid.UUID, departmentID *uuid.UUID) ([]entity.PayrollRecordDetail, error) {
 	var list []entity.PayrollRecordDetail
-	query := `SELECT id, record_id, component, description, source, amount, created_at FROM payroll_record_details WHERE record_id = $1`
-	err := r.DB.SQLx().SelectContext(ctx, &list, query, recordID)
+	var err error
+	if departmentID != nil {
+		query := `
+			SELECT d.id, d.record_id, d.component, d.description, d.source, d.amount, d.created_at 
+			FROM payroll_record_details d
+			JOIN payroll_records pr ON d.record_id = pr.id
+			JOIN user_profiles u ON pr.employee_id = u.id
+			WHERE d.record_id = $1 AND u.department_id = $2
+		`
+		err = r.DB.SQLx().SelectContext(ctx, &list, query, recordID, *departmentID)
+	} else {
+		query := `SELECT id, record_id, component, description, source, amount, created_at FROM payroll_record_details WHERE record_id = $1`
+		err = r.DB.SQLx().SelectContext(ctx, &list, query, recordID)
+	}
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []entity.PayrollRecordDetail{}, nil

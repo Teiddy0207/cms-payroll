@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	coredto "cal-salary/core/dto"
+
+	"github.com/google/uuid"
+)
 
 type JobStandardBreakdown struct {
 	StandardID     uuid.UUID `json:"standard_id"`
@@ -66,3 +70,5 @@ type SalaryCalculationResponse struct {
 	Items            []SalaryCalculationItem `json:"items"`
 	Note             string                  `json:"note"`
 }
+
+type SalaryCalculationItemPagination = coredto.Pagination[SalaryCalculationItem]

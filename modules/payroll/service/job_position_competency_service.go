@@ -511,7 +511,7 @@ func (s *PayrollService) GetCalculationJobStatus(ctx context.Context, jobID stri
 	return result, nil
 }
 
-func (s *PayrollService) GetSavedPayrollRecords(ctx context.Context, period string) ([]dto.SalaryCalculationItem, *errors.AppError) {
+func (s *PayrollService) GetSavedPayrollRecords(ctx context.Context, period string, param params.QueryParams) ([]dto.SalaryCalculationItem, *errors.AppError) {
 	_, _, month, year, err := parsePeriodDates(period)
 	if err != nil {
 		return nil, errors.NewAppError(errors.ErrInvalidInput, "invalid period format", err)

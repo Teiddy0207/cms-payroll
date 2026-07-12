@@ -2,6 +2,7 @@ package controller
 
 import (
 	"cal-salary/core/errors"
+	"cal-salary/core/params"
 	"cal-salary/modules/payroll/dto"
 	"net/http"
 
@@ -75,12 +76,13 @@ func (ctrl *PayrollController) GetCalculationJobStatus(c echo.Context) error {
 
 func (ctrl *PayrollController) GetSavedPayrollRecords(c echo.Context) error {
 	ctx := c.Request().Context()
+	qp := params.NewQueryParams(c)
 	period := c.QueryParam("period")
 	if period == "" {
 		return ctrl.BadRequest(errors.ErrInvalidRequestData, "period query parameter is required", nil)
 	}
 
-	records, appErr := ctrl.Service.GetSavedPayrollRecords(ctx, period)
+	records, appErr := ctrl.Service.GetSavedPayrollRecords(ctx, period, *qp)
 	if appErr != nil {
 		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
 	}

@@ -105,8 +105,8 @@ export function Sidebar() {
           top: 0;
           bottom: 0;
           width: var(--sidebar-width);
-          background: var(--sidebar-bg);
-          border-right: 1px solid var(--border-color);
+          background: #082920;
+          border-right: 1px solid rgba(255, 255, 255, 0.06);
           display: flex;
           flex-direction: column;
           z-index: 100;
@@ -118,7 +118,7 @@ export function Sidebar() {
           align-items: center;
           gap: 12px;
           padding: 20px 20px 18px;
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
           flex-shrink: 0;
         }
 
@@ -131,14 +131,14 @@ export function Sidebar() {
           align-items: center;
           justify-content: center;
           font-size: 18px;
-          box-shadow: 0 0 16px rgba(79, 142, 247, 0.3);
+          box-shadow: 0 0 16px rgba(16, 185, 129, 0.3);
           flex-shrink: 0;
         }
 
         .sidebar-logo-text {
           font-size: 17px;
           font-weight: 800;
-          color: var(--text-primary);
+          color: #ffffff;
           letter-spacing: -0.5px;
         }
 
@@ -158,7 +158,7 @@ export function Sidebar() {
         .nav-section-label {
           font-size: 10.5px;
           font-weight: 700;
-          color: var(--text-muted);
+          color: #638c82;
           letter-spacing: 1px;
           padding: 4px 10px 10px;
           text-transform: uppercase;
@@ -170,7 +170,7 @@ export function Sidebar() {
           gap: 10px;
           padding: 10px 12px;
           border-radius: var(--radius-md);
-          color: var(--text-secondary);
+          color: #bce3db;
           text-decoration: none;
           font-size: 13.5px;
           font-weight: 500;
@@ -179,13 +179,13 @@ export function Sidebar() {
         }
 
         .nav-item:hover {
-          background: rgba(15, 23, 42, 0.04);
-          color: var(--text-primary);
+          background: rgba(255, 255, 255, 0.05);
+          color: #ffffff;
         }
 
         .nav-item.active {
-          background: var(--accent-light);
-          color: var(--accent);
+          background: rgba(16, 185, 129, 0.15);
+          color: #10b981;
         }
 
         .nav-item.active::before {
@@ -195,7 +195,7 @@ export function Sidebar() {
           top: 20%;
           bottom: 20%;
           width: 3px;
-          background: var(--accent);
+          background: #10b981;
           border-radius: 0 2px 2px 0;
         }
 
@@ -215,7 +215,7 @@ export function Sidebar() {
 
         .sidebar-footer {
           padding: 14px 10px;
-          border-top: 1px solid var(--border-color);
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
           flex-shrink: 0;
         }
 
@@ -228,7 +228,7 @@ export function Sidebar() {
           border-radius: var(--radius-md);
           background: transparent;
           border: none;
-          color: var(--text-muted);
+          color: #638c82;
           font-size: 13.5px;
           font-weight: 500;
           cursor: pointer;
@@ -236,8 +236,8 @@ export function Sidebar() {
         }
 
         .sidebar-logout:hover {
-          background: var(--error-light);
-          color: var(--error);
+          background: rgba(220, 38, 38, 0.15);
+          color: #ef4444;
         }
       `}</style>
     </aside>

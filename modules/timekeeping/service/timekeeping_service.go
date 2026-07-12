@@ -678,23 +678,23 @@ func (s *TimekeepingServiceImpl) CreateExplanationRequest(ctx context.Context, u
 }
 
 func (s *TimekeepingServiceImpl) GetExplanationRequests(ctx context.Context, userID uuid.UUID) ([]dto.ExplanationRequestResponse, *errors.AppError) {
-	profile, err := s.getProfileByUserID(ctx, userID)
-	if err != nil {
-		return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân sự", err)
-	}
-
 	role, errRole := s.getUserRole(ctx, userID)
 	if errRole != nil {
 		role = "EMPLOYEE"
 	}
 
+	isAdmin := strings.ToUpper(role) == "ADMIN" || strings.ToUpper(role) == "DIRECTOR"
+	isManager := strings.ToUpper(role) == "MANAGER"
+
 	var employeeIDFilter *uuid.UUID
 	var departmentIDFilter *uuid.UUID
 
-	isAdmin := role == "ADMIN" || role == "DIRECTOR"
-	isManager := role == "MANAGER"
-
 	if !isAdmin {
+		profile, err := s.getProfileByUserID(ctx, userID)
+		if err != nil {
+			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân sự", err)
+		}
+
 		if isManager {
 			deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
 			if errDept == nil {
@@ -830,23 +830,23 @@ func (s *TimekeepingServiceImpl) CreateOTRequest(ctx context.Context, userID uui
 }
 
 func (s *TimekeepingServiceImpl) GetOTRequests(ctx context.Context, userID uuid.UUID) ([]dto.OTRequestResponse, *errors.AppError) {
-	profile, err := s.getProfileByUserID(ctx, userID)
-	if err != nil {
-		return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân sự", err)
-	}
-
 	role, errRole := s.getUserRole(ctx, userID)
 	if errRole != nil {
 		role = "EMPLOYEE"
 	}
 
+	isAdmin := strings.ToUpper(role) == "ADMIN" || strings.ToUpper(role) == "DIRECTOR"
+	isManager := strings.ToUpper(role) == "MANAGER"
+
 	var employeeIDFilter *uuid.UUID
 	var departmentIDFilter *uuid.UUID
 
-	isAdmin := role == "ADMIN" || role == "DIRECTOR"
-	isManager := role == "MANAGER"
-
 	if !isAdmin {
+		profile, err := s.getProfileByUserID(ctx, userID)
+		if err != nil {
+			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân sự", err)
+		}
+
 		if isManager {
 			deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
 			if errDept == nil {

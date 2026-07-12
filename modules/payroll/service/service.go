@@ -51,8 +51,6 @@ type PayrollServiceInterface interface {
 	UpdateContract(ctx context.Context, id uuid.UUID, req *dto.UpdateContractRequest) *errors.AppError
 	DeleteContract(ctx context.Context, id uuid.UUID) *errors.AppError
 
-
-
 	// Competencies (Dictionary)
 	CreateCompetency(ctx context.Context, req *dto.CreateCompetencyRequest) (*dto.CompetencyResponse, *errors.AppError)
 	GetCompetencies(ctx context.Context, params params.QueryParams) (*dto.PaginatedCompetencyDTO, *errors.AppError)
@@ -66,8 +64,6 @@ type PayrollServiceInterface interface {
 	GetEvaluationByID(ctx context.Context, id uuid.UUID) (*dto.EvaluationResponse, *errors.AppError)
 	UpdateEvaluation(ctx context.Context, id uuid.UUID, req *dto.CompetencyScoreInput) *errors.AppError
 	DeleteEvaluation(ctx context.Context, id uuid.UUID) *errors.AppError
-
-
 
 	// Employee Competencies
 	AssignEmployeeCompetencies(ctx context.Context, userProfileID uuid.UUID, req *dto.AssignEmployeeCompetenciesRequest) *errors.AppError
@@ -84,9 +80,9 @@ type PayrollServiceInterface interface {
 	RunSalaryCalculation(ctx context.Context, req *dto.SalaryCalculationRequest) (*dto.SalaryCalculationResponse, *errors.AppError)
 	RunSalaryCalculationAsync(ctx context.Context, req *dto.SalaryCalculationRequest) (string, *errors.AppError)
 	GetCalculationJobStatus(ctx context.Context, jobID string) (map[string]any, *errors.AppError)
-	GetSavedPayrollRecords(ctx context.Context, period string) ([]dto.SalaryCalculationItem, *errors.AppError)
+	GetSavedPayrollRecords(ctx context.Context, period string, param params.QueryParams) ([]dto.SalaryCalculationItem, *errors.AppError)
 
-	// Formulas CRUD
+	// Formulas CRUD,
 	CreatePayrollFormula(ctx context.Context, req *dto.CreateFormulaRequest) (*dto.FormulaResponse, *errors.AppError)
 	GetPayrollFormulas(ctx context.Context) ([]dto.FormulaResponse, *errors.AppError)
 	UpdatePayrollFormula(ctx context.Context, id uuid.UUID, req *dto.UpdateFormulaRequest) *errors.AppError
