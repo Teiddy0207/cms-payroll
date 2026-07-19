@@ -47,6 +47,12 @@ const navSections = [
       { path: '/contracts', label: 'Hợp đồng' },
       { path: '/settings', label: 'Cài đặt' }
     ]
+  },
+  {
+    title: 'Hỗ trợ',
+    items: [
+      { path: '/pdf-tools', label: 'Công cụ PDF'}
+    ]
   }
 ];
 

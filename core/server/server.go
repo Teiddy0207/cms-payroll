@@ -14,6 +14,7 @@ import (
 	"cal-salary/modules/activity_log"
 	"cal-salary/modules/auth"
 	"cal-salary/modules/payroll"
+	"cal-salary/modules/pdf"
 	"cal-salary/modules/timekeeping"
 	"context"
 	"flag"
@@ -222,6 +223,12 @@ func initServer() (*Server, error) {
 
 	timekeepingMod := timekeeping.Init(db, redisCache, natsClient, cfg.Nats)
 	timekeepingMod.SetupRouter(e, middlewareInstance, activityLogSvc)
+
+	pdfMod := pdf.Init()
+	pdfMod.SetupRouter(e, middlewareInstance)
+	if err := pdfMod.StartWatcher(context.Background()); err != nil {
+		logger.Warn("PDFModule: Failed to start folder watcher", "error", err)
+	}
 
 	return &Server{
 		echo:       e,

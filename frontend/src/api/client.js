@@ -178,4 +178,50 @@ export const timekeepingAPI = {
     client.delete(`/private/timekeeping/faces/${code}`),
 };
 
+// ===================== PDF TOOLS =====================
+export const pdfAPI = {
+  // Upload nhiều file, gộp thành 1 PDF
+  merge: (files, outputName = 'merged_output') => {
+    const form = new FormData();
+    files.forEach(f => form.append('files', f));
+    form.append('output_name', outputName);
+    return client.post('/private/pdf/merge', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    });
+  },
+  // Upload 1 file, nén PDF
+  compress: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return client.post('/private/pdf/compress', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    });
+  },
+  // Upload 1 file, thêm watermark text
+  watermark: (file, text = 'BẢO MẬT') => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('text', text);
+    return client.post('/private/pdf/watermark', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    });
+  },
+  // Upload 1 file, xoay trang
+  rotate: (file, angle = 90, pages = '') => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('angle', String(angle));
+    form.append('pages', pages);
+    return client.post('/private/pdf/rotate', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    });
+  },
+  // Download file kết quả từ server
+  downloadUrl: (path) => `${BASE_URL}/private/pdf/download?path=${encodeURIComponent(path)}`,
+};
+
 export default client;

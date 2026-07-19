@@ -17,6 +17,7 @@ import TimesheetsPage from './pages/TimesheetsPage.jsx';
 import AttendanceLogsPage from './pages/AttendanceLogsPage.jsx';
 import ExplanationRequestsPage from './pages/ExplanationRequestsPage.jsx';
 import OTRequestsPage from './pages/OTRequestsPage.jsx';
+import PDFToolsPage from './pages/PDFToolsPage.jsx';
 import { ConfigProvider } from 'antd';
 
 function ProtectedRoute({ children }) {
@@ -69,6 +70,7 @@ function App() {
               <Route path="job-positions" element={<JobPositionsPage />} />
               <Route path="competencies" element={<CompetenciesPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="pdf-tools" element={<PDFToolsPage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
           </Routes>
