@@ -1,18 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { calculatorAPI } from '../api/client.js';
-import { Table } from '../components/Table.jsx';
-import { Modal } from '../components/Modal.jsx';
-import { Badge } from '../components/Badge.jsx';
+import { calculatorAPI, departmentsAPI } from '../api/client.js';
+import { Table, DatePicker, Select, Button, Progress, Modal, Tag, Card } from 'antd';
+import { EyeOutlined } from '@ant-design/icons';
 import { useToast } from '../hooks/useToast.js';
+import dayjs from 'dayjs';
+
+const { Option } = Select;
 
 export function PayrollRunPage() {
 	const toast = useToast();
 	const [loading, setLoading] = useState(false);
 	const [records, setRecords] = useState([]);
+	const [departments, setDepartments] = useState([]);
 	const [selectedPeriod, setSelectedPeriod] = useState(() => {
 		const d = new Date();
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 	});
+	const [selectedDepartment, setSelectedDepartment] = useState(undefined);
 
 	const [jobStatus, setJobStatus] = useState(null);
 	const [polling, setPolling] = useState(false);
@@ -25,10 +29,23 @@ export function PayrollRunPage() {
 		return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
 	};
 
-	const fetchRecords = useCallback(async (period) => {
+	const fetchDepartments = async () => {
+		try {
+			const res = await departmentsAPI.list({ page_size: 100 });
+			setDepartments(res.data?.data?.items || []);
+		} catch (err) {
+			console.error("fetchDepartments error:", err);
+		}
+	};
+
+	const fetchRecords = useCallback(async (period, departmentId) => {
 		setLoading(true);
 		try {
-			const res = await calculatorAPI.getSavedRecords(period);
+			const extraParams = {};
+			if (departmentId) {
+				extraParams.department_id = departmentId;
+			}
+			const res = await calculatorAPI.getSavedRecords(period, extraParams);
 			setRecords(res.data?.data || []);
 		} catch (err) {
 			console.error("fetchRecords error:", err);
@@ -55,7 +72,7 @@ export function PayrollRunPage() {
 					pollInterval.current = null;
 				}
 				toast.success('Thành công', 'Đã hoàn tất tính toán lương cả công ty');
-				fetchRecords(selectedPeriod);
+				fetchRecords(selectedPeriod, selectedDepartment);
 			} else if (status?.status === 'FAILED') {
 				setPolling(false);
 				if (pollInterval.current) {
@@ -67,7 +84,7 @@ export function PayrollRunPage() {
 		} catch (err) {
 			console.error("checkJobStatus error:", err);
 		}
-	}, [fetchRecords, selectedPeriod, toast]);
+	}, [fetchRecords, selectedPeriod, selectedDepartment, toast]);
 
 	const startPolling = useCallback((jobId) => {
 		if (!jobId) {
@@ -107,8 +124,12 @@ export function PayrollRunPage() {
 	};
 
 	useEffect(() => {
-		fetchRecords(selectedPeriod);
-	}, [selectedPeriod, fetchRecords]);
+		fetchDepartments();
+	}, []);
+
+	useEffect(() => {
+		fetchRecords(selectedPeriod, selectedDepartment);
+	}, [selectedPeriod, selectedDepartment, fetchRecords]);
 
 	useEffect(() => {
 		return () => {
@@ -120,8 +141,9 @@ export function PayrollRunPage() {
 
 	const columns = [
 		{
-			key: 'fullName',
+			dataIndex: 'fullName',
 			title: 'Nhân sự',
+			key: 'fullName',
 			render: (_, row) => (
 				<div>
 					<div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{row.fullName}</div>
@@ -130,28 +152,28 @@ export function PayrollRunPage() {
 			)
 		},
 		{
-			key: 'p1',
 			title: 'Lương P1',
+			key: 'p1',
 			render: (_, row) => formatVND(row.preview?.p1)
 		},
 		{
-			key: 'p2',
 			title: 'Lương P2',
+			key: 'p2',
 			render: (_, row) => formatVND(row.preview?.p2)
 		},
 		{
-			key: 'gross',
 			title: 'Tổng thu nhập',
+			key: 'gross',
 			render: (_, row) => formatVND(row.preview?.subtotal_p1_p2)
 		},
 		{
-			key: 'tax',
 			title: 'Thuế TNCN',
+			key: 'tax',
 			render: (_, row) => formatVND(row.preview?.tax || (row.preview?.subtotal_p1_p2 * 0.1))
 		},
 		{
-			key: 'net',
 			title: 'Thực nhận',
+			key: 'net',
 			render: (_, row) => (
 				<span style={{ fontWeight: 700, color: 'var(--accent)' }}>
 					{formatVND(row.preview?.net_salary || (row.preview?.subtotal_p1_p2 * 0.9))}
@@ -159,27 +181,34 @@ export function PayrollRunPage() {
 			)
 		},
 		{
-			key: 'status',
 			title: 'Trạng thái',
-			render: (status) => (
-				<Badge variant={status === 'SUCCESS' || status === 'APPROVED' ? 'success' : 'warning'}>
-					{status === 'SUCCESS' ? 'Đã lưu nháp' : status}
-				</Badge>
-			)
+			key: 'status',
+			dataIndex: 'status',
+			render: (status) => {
+				const isSuccess = status === 'SUCCESS' || status === 'APPROVED';
+				return (
+					<Tag color={isSuccess ? 'success' : 'warning'}>
+						{status === 'SUCCESS' ? 'Đã lưu nháp' : status}
+					</Tag>
+				);
+			}
 		},
 		{
-			key: 'actions',
 			title: 'Thao tác',
+			key: 'actions',
 			render: (_, row) => (
-				<button
-					className="btn btn-sm btn-secondary"
+				<Button
+					type="primary"
+					ghost
+					size="small"
+					icon={<EyeOutlined />}
 					onClick={() => {
 						setSelectedRow(row);
 						setDetailOpen(true);
 					}}
 				>
 					Chi tiết
-				</button>
+				</Button>
 			)
 		}
 	];
@@ -199,60 +228,97 @@ export function PayrollRunPage() {
 					</p>
 				</div>
 				<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-					<input
-						type="month"
-						className="form-input"
-						value={selectedPeriod}
-						onChange={(e) => setSelectedPeriod(e.target.value)}
+					{/* Chọn Phòng ban */}
+					<Select
+						placeholder="Lọc theo phòng ban"
+						allowClear
+						style={{ width: 200 }}
+						value={selectedDepartment}
+						onChange={(val) => setSelectedDepartment(val)}
 						disabled={polling}
-						style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
-					/>
-					<button
-						className="btn btn-primary"
-						onClick={handleCalculate}
-						disabled={loading || polling}
-						style={{ display: 'flex', alignItems: 'center', gap: 8 }}
 					>
-						<span>⚡ Tính lương cả công ty</span>
-					</button>
+						{departments.map((dept) => (
+							<Option key={dept.id} value={dept.id}>
+								{dept.name}
+							</Option>
+						))}
+					</Select>
+
+					{/* Chọn Kỳ lương */}
+					<DatePicker
+						picker="month"
+						allowClear={false}
+						value={selectedPeriod ? dayjs(selectedPeriod, 'YYYY-MM') : null}
+						onChange={(date) => {
+							if (date) {
+								setSelectedPeriod(date.format('YYYY-MM'));
+							}
+						}}
+						disabled={polling}
+						style={{ width: 140 }}
+					/>
+
+					{/* Tính lương */}
+					<Button
+						type="primary"
+						onClick={handleCalculate}
+						loading={loading || polling}
+					>
+						⚡ Tính lương cả công ty
+					</Button>
 				</div>
 			</div>
 
 			{polling && (
-				<div className="card" style={{ marginBottom: 24, padding: 24, background: 'rgba(79, 142, 247, 0.05)', borderColor: 'rgba(79, 142, 247, 0.2)' }}>
+				<Card
+					style={{ marginBottom: 24, background: 'rgba(16, 185, 129, 0.05)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
+					bodyStyle={{ padding: 24 }}
+				>
 					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
 						<div style={{ fontWeight: 600, fontSize: 16 }}>Đang xử lý tính toán bảng lương...</div>
 						<div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 18 }}>{progressPercent}%</div>
 					</div>
-					<div className="progress-bar-bg" style={{ width: '100%', height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
-						<div className="progress-bar-fill" style={{ width: `${progressPercent}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.3s ease' }} />
-					</div>
+					<Progress
+						percent={progressPercent}
+						status="active"
+						strokeColor="#10b981"
+						showInfo={false}
+						style={{ marginBottom: 12 }}
+					/>
 					<div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
 						Tiến độ: {successCount + failedCount} / {totalEmployees} nhân sự ({successCount} thành công, {failedCount} thất bại)
 					</div>
-				</div>
+				</Card>
 			)}
 
-			<div className="card">
+			<Card bodyStyle={{ padding: 0 }} style={{ overflow: 'hidden' }}>
 				<Table
 					columns={columns}
-					data={records}
+					dataSource={records}
 					loading={loading && !polling}
-					emptyMessage="Chưa có bảng lương chính thức cho kỳ này"
+					rowKey={(record) => record.id}
+					pagination={{ pageSize: 10 }}
+					locale={{ emptyText: 'Chưa có bảng lương chính thức cho kỳ này' }}
 				/>
-			</div>
+			</Card>
 
 			<Modal
-				isOpen={detailOpen}
-				onClose={() => setDetailOpen(false)}
+				open={detailOpen}
+				onCancel={() => setDetailOpen(false)}
 				title="Chi tiết bảng lương"
-				size="md"
+				footer={[
+					<Button key="close" onClick={() => setDetailOpen(false)}>
+						Đóng
+					</Button>
+				]}
 			>
 				{selectedRow && (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
 						<div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
-							<h3 style={{ fontSize: 16, fontWeight: 700 }}>{selectedRow.fullName}</h3>
-							<p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Mã nhân sự: {selectedRow.employee_id}</p>
+							<h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{selectedRow.fullName}</h3>
+							<p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '4px 0 0' }}>
+								Mã nhân sự: {selectedRow.employee_id}
+							</p>
 						</div>
 
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

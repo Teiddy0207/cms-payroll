@@ -152,6 +152,10 @@ func initServer() (*Server, error) {
 		logger.Warn("Failed to seed user profiles", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
+	if err := seed.SeedAttendanceData(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed attendance data", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
 	if err := seed.SeedJobPositions(seedCtx, db); err != nil {
 		logger.Warn("Failed to seed job positions", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
