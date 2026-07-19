@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 )
 
 type Server struct {
@@ -201,6 +202,7 @@ func initServer() (*Server, error) {
 	// Middleware
 	e.Use(middleware.LoggerMiddleware())
 	e.Use(middleware.CORSMiddleware())
+	e.Use(echomiddleware.Recover()) // Tránh server crash khi có panic trong handler
 
 	e.Use(echo.MiddlewareFunc(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {

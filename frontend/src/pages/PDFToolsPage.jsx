@@ -32,7 +32,9 @@ const OperationBadge = ({ icon, label, color }) => (
 );
 
 /* ─────────── Result Card ─────────── */
-function ResultCard({ result, loading, downloadToken }) {
+function ResultCard({ result, loading }) {
+  const [downloading, setDownloading] = useState(false);
+
   if (loading) {
     return (
       <Card style={cardStyle} className="pdf-result-card">
@@ -50,6 +52,32 @@ function ResultCard({ result, loading, downloadToken }) {
     ? pdfAPI.downloadUrl(result.output_path)
     : null;
 
+  const handleDownload = async () => {
+    if (!result.output_path) return;
+    setDownloading(true);
+    try {
+      const res = await pdfAPI.downloadFile(result.output_path);
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = result.output_path.split(/[/\\]/).pop() || 'result.pdf';
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download error:", err);
+      if (downloadLink) {
+        window.open(downloadLink, '_blank');
+      } else {
+        antMessage.error('Không thể tải file');
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <Card
       style={{ ...cardStyle, border: '1px solid rgba(16,185,129,0.4)', background: 'rgba(16,185,129,0.05)' }}
@@ -66,13 +94,13 @@ function ResultCard({ result, loading, downloadToken }) {
             📁 {result.output_path}
           </Text>
         )}
-        {downloadLink && (
+        {result.output_path && (
           <Button
             type="primary"
             icon={<DownloadOutlined />}
             size="large"
-            href={downloadLink}
-            target="_blank"
+            loading={downloading}
+            onClick={handleDownload}
             style={{ background: '#10b981', borderColor: '#10b981', marginTop: 8 }}
           >
             Tải về file kết quả

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -19,6 +20,32 @@ type PDFController struct {
 
 func NewPDFController(svc service.PDFServiceInterface) *PDFController {
 	return &PDFController{Service: svc}
+}
+
+// saveTempFile lưu multipart file ra đĩa, đóng file đúng cách và trả về đường dẫn
+func saveTempFile(src io.ReadCloser, prefix string) (string, error) {
+	defer src.Close()
+
+	// Tạo file temp với tên an toàn (không dùng tên gốc để tránh ký tự đặc biệt)
+	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
+	tmpPath := filepath.Join(os.TempDir(), fmt.Sprintf("pdf_%s_%s.pdf", prefix, timestamp))
+
+	dst, err := os.Create(tmpPath)
+	if err != nil {
+		return "", fmt.Errorf("lỗi tạo file tạm: %w", err)
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return "", fmt.Errorf("lỗi ghi file tạm: %w", err)
+	}
+
+	// Đảm bảo flush xuống đĩa trước khi trả về path
+	if err := dst.Sync(); err != nil {
+		return "", fmt.Errorf("lỗi sync file tạm: %w", err)
+	}
+
+	return tmpPath, nil
 }
 
 // UploadAndMerge nhận nhiều file PDF upload lên, gộp lại và trả về file kết quả để download
@@ -38,23 +65,17 @@ func (ctrl *PDFController) UploadAndMerge(c echo.Context) error {
 		outputName = "merged_output"
 	}
 
-	// Lưu các file upload tạm thời
-	tmpDir := os.TempDir()
 	var inputPaths []string
-	for _, fh := range files {
+	for i, fh := range files {
 		src, err := fh.Open()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Lỗi đọc file: " + err.Error()})
 		}
-		defer src.Close()
-
-		tmpPath := filepath.Join(tmpDir, "pdf_merge_"+fh.Filename)
-		dst, err := os.Create(tmpPath)
+		// saveTempFile tự đóng src và dst sau khi ghi xong
+		tmpPath, err := saveTempFile(src, fmt.Sprintf("merge_%d", i))
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Lỗi lưu file tạm: " + err.Error()})
+			return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 		}
-		defer dst.Close()
-		io.Copy(dst, src)
 		inputPaths = append(inputPaths, tmpPath)
 	}
 
@@ -80,12 +101,11 @@ func (ctrl *PDFController) UploadAndCompress(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	defer src.Close()
 
-	tmpPath := filepath.Join(os.TempDir(), "pdf_compress_"+fh.Filename)
-	dst, _ := os.Create(tmpPath)
-	defer dst.Close()
-	io.Copy(dst, src)
+	tmpPath, err := saveTempFile(src, "compress")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
 
 	outputName := strings.TrimSuffix(fh.Filename, filepath.Ext(fh.Filename)) + "_compressed"
 	resp, err := ctrl.Service.CompressPDF(c.Request().Context(), dto.CompressRequest{
@@ -110,12 +130,11 @@ func (ctrl *PDFController) UploadAndWatermark(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	defer src.Close()
 
-	tmpPath := filepath.Join(os.TempDir(), "pdf_wm_"+fh.Filename)
-	dst, _ := os.Create(tmpPath)
-	defer dst.Close()
-	io.Copy(dst, src)
+	tmpPath, err := saveTempFile(src, "watermark")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
 
 	watermarkText := c.FormValue("text")
 	if watermarkText == "" {
@@ -148,18 +167,17 @@ func (ctrl *PDFController) UploadAndRotate(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	defer src.Close()
 
-	tmpPath := filepath.Join(os.TempDir(), "pdf_rotate_"+fh.Filename)
-	dst, _ := os.Create(tmpPath)
-	defer dst.Close()
-	io.Copy(dst, src)
+	tmpPath, err := saveTempFile(src, "rotate")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
 
 	angle := 90
 	if a := c.FormValue("angle"); a != "" {
 		fmt.Sscanf(a, "%d", &angle)
 	}
-	pages := c.FormValue("pages") // ví dụ "1,3,5" hoặc "" để xoay tất cả
+	pages := c.FormValue("pages")
 	outputName := strings.TrimSuffix(fh.Filename, filepath.Ext(fh.Filename)) + "_rotated"
 
 	resp, err := ctrl.Service.RotatePDF(c.Request().Context(), dto.RotateRequest{

@@ -32,18 +32,20 @@ func NewMiddleware(authService service.AuthServiceInterface) *Middleware {
 func (m *Middleware) AuthMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			// Get token from header
+			// Get token from header or query param
 			authHeader := c.Request().Header.Get("Authorization")
-			if authHeader == "" {
+			var tokenStr string
+			if authHeader != "" {
+				parts := strings.Fields(authHeader)
+				if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+					return m.Unauthorized(errors.ErrInvalidTokenFormat, "invalid token format")
+				}
+				tokenStr = strings.TrimSpace(parts[1])
+			} else if queryToken := c.QueryParam("token"); queryToken != "" {
+				tokenStr = queryToken
+			} else {
 				return m.Unauthorized(errors.ErrMissingAuthorizationHeader, "missing authorization header")
 			}
-
-			// Check Bearer token format
-			parts := strings.Fields(authHeader)
-			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-				return m.Unauthorized(errors.ErrInvalidTokenFormat, "invalid token format")
-			}
-			tokenStr := strings.TrimSpace(parts[1])
 
 			// Validate token
 			claims, err := utils.ValidateAndParseToken(tokenStr)

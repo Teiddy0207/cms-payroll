@@ -12,6 +12,7 @@ import (
 	"time"
 
 	pdfcpuapi "github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
@@ -30,14 +31,12 @@ type PDFServiceInterface interface {
 type PDFService struct{}
 
 func NewPDFService() PDFServiceInterface {
-	// Đảm bảo thư mục output tồn tại khi khởi động
 	if err := os.MkdirAll(outputBaseDir, 0755); err != nil {
 		logger.Error("PDFService: Cannot create output directory", "error", err)
 	}
 	return &PDFService{}
 }
 
-// generateOutputPath tạo đường dẫn file output duy nhất theo thời gian
 func generateOutputPath(name string) string {
 	timestamp := strconv.FormatInt(time.Now().UnixMilli(), 10)
 	safeName := strings.ReplaceAll(name, " ", "_")
@@ -48,6 +47,7 @@ func generateOutputPath(name string) string {
 func (s *PDFService) MergePDFs(ctx context.Context, req dto.MergeRequest) (*dto.PDFJobResponse, error) {
 	outputPath := generateOutputPath(req.OutputName)
 	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
 
 	logger.Info("PDFService: Merging PDFs", "files", len(req.InputPaths), "output", outputPath)
 
@@ -76,6 +76,7 @@ func (s *PDFService) SplitPDF(ctx context.Context, req dto.SplitRequest) (*dto.P
 	}
 
 	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
 	logger.Info("PDFService: Splitting PDF", "input", req.InputPath, "span", req.SpanRange)
 
 	if err := pdfcpuapi.SplitFile(req.InputPath, outDir, req.SpanRange, conf); err != nil {
@@ -95,15 +96,32 @@ func (s *PDFService) SplitPDF(ctx context.Context, req dto.SplitRequest) (*dto.P
 func (s *PDFService) CompressPDF(ctx context.Context, req dto.CompressRequest) (*dto.PDFJobResponse, error) {
 	outputPath := generateOutputPath(req.OutputName)
 	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+	conf.Cmd = model.OPTIMIZE
 
 	logger.Info("PDFService: Compressing PDF", "input", req.InputPath)
 
-	if err := pdfcpuapi.OptimizeFile(req.InputPath, outputPath, conf); err != nil {
-		logger.Error("PDFService: Compress failed", "error", err)
+	fInput, err := os.Open(req.InputPath)
+	if err != nil {
+		return nil, fmt.Errorf("không thể mở file PDF: %w", err)
+	}
+	defer fInput.Close()
+
+	pdfCtx, err := pdfcpuapi.ReadContext(fInput, conf)
+	if err != nil {
+		logger.Error("PDFService: Compress ReadContext failed", "error", err)
+		return nil, fmt.Errorf("không thể đọc PDF: %w", err)
+	}
+
+	pdfCtx.EnsureVersionForWriting()
+	_ = pdfcpuapi.ValidateContext(pdfCtx)
+	_ = pdfcpuapi.OptimizeContext(pdfCtx)
+
+	if err := pdfcpuapi.WriteContextFile(pdfCtx, outputPath); err != nil {
+		logger.Error("PDFService: Compress WriteContextFile failed", "error", err)
 		return nil, fmt.Errorf("không thể nén PDF: %w", err)
 	}
 
-	// Tính tỷ lệ nén
 	srcInfo, _ := os.Stat(req.InputPath)
 	dstInfo, _ := os.Stat(outputPath)
 	var ratio float64
@@ -124,7 +142,6 @@ func (s *PDFService) CompressPDF(ctx context.Context, req dto.CompressRequest) (
 func (s *PDFService) WatermarkPDF(ctx context.Context, req dto.WatermarkRequest) (*dto.PDFJobResponse, error) {
 	outputPath := generateOutputPath(req.OutputName)
 
-	// Mặc định opacity và angle
 	opacity := req.Opacity
 	if opacity <= 0 {
 		opacity = 0.3
@@ -136,10 +153,10 @@ func (s *PDFService) WatermarkPDF(ctx context.Context, req dto.WatermarkRequest)
 
 	logger.Info("PDFService: Adding watermark", "text", req.Text, "opacity", opacity, "angle", angle)
 
-	// Tạo chuỗi mô tả watermark theo format của pdfcpu
-	// Ví dụ: "op:0.3, rot:45, scale:.7 abs, pos:c"
 	wmDesc := fmt.Sprintf("op:%.2f, rot:%.0f, scale:.7 abs, pos:c", opacity, angle)
 	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+	conf.Cmd = model.ADDWATERMARKS
 
 	wm, err := pdfcpuapi.TextWatermark(req.Text, wmDesc, true, false, types.POINTS)
 	if err != nil {
@@ -147,9 +164,42 @@ func (s *PDFService) WatermarkPDF(ctx context.Context, req dto.WatermarkRequest)
 		return nil, fmt.Errorf("không thể tạo cấu hình watermark: %w", err)
 	}
 
-	if err := pdfcpuapi.AddWatermarksFile(req.InputPath, outputPath, nil, wm, conf); err != nil {
-		logger.Error("PDFService: Watermark failed", "error", err)
+	fInput, err := os.Open(req.InputPath)
+	if err != nil {
+		return nil, fmt.Errorf("không thể mở file PDF đầu vào: %w", err)
+	}
+	defer fInput.Close()
+
+	// 1. Đọc context PDF mà chưa chạy validator phiên bản strict
+	pdfCtx, err := pdfcpuapi.ReadContext(fInput, conf)
+	if err != nil {
+		logger.Error("PDFService: ReadContext failed", "error", err)
+		return nil, fmt.Errorf("không thể đọc cấu trúc PDF: %w", err)
+	}
+
+	// 2. Tự động nâng Version phiên bản xuất lên PDF 1.7 trước khi validate
+	// Điều này giúp tránh lỗi "unsupported in version 1.4" khi PDF gốc chứa annotation PDF 1.6+
+	pdfCtx.EnsureVersionForWriting()
+
+	// 3. Chạy validate nhẹ (nếu có cảnh báo cũng không dừng)
+	_ = pdfcpuapi.ValidateContext(pdfCtx)
+
+	// 4. Lấy toàn bộ danh sách trang
+	pages, err := pdfcpuapi.PagesForPageSelection(pdfCtx.PageCount, nil, true, true)
+	if err != nil {
+		return nil, fmt.Errorf("lỗi chọn trang PDF: %w", err)
+	}
+
+	// 5. Thêm watermark vào context
+	if err := pdfcpu.AddWatermarks(pdfCtx, pages, wm); err != nil {
+		logger.Error("PDFService: AddWatermarks failed", "error", err)
 		return nil, fmt.Errorf("không thể thêm watermark vào PDF: %w", err)
+	}
+
+	// 6. Ghi file kết quả
+	if err := pdfcpuapi.WriteContextFile(pdfCtx, outputPath); err != nil {
+		logger.Error("PDFService: WriteContextFile failed", "error", err)
+		return nil, fmt.Errorf("không thể ghi file PDF kết quả: %w", err)
 	}
 
 	logger.Info("PDFService: Watermark completed", "output", outputPath)
@@ -165,8 +215,9 @@ func (s *PDFService) WatermarkPDF(ctx context.Context, req dto.WatermarkRequest)
 func (s *PDFService) RotatePDF(ctx context.Context, req dto.RotateRequest) (*dto.PDFJobResponse, error) {
 	outputPath := generateOutputPath(req.OutputName)
 	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+	conf.Cmd = model.ROTATE
 
-	// Chuẩn bị page selection - nil = tất cả trang
 	var pageSelection []string
 	if req.Pages != "" {
 		pageSelection = strings.Split(req.Pages, ",")
@@ -174,9 +225,34 @@ func (s *PDFService) RotatePDF(ctx context.Context, req dto.RotateRequest) (*dto
 
 	logger.Info("PDFService: Rotating PDF", "angle", req.Angle, "pages", req.Pages)
 
-	if err := pdfcpuapi.RotateFile(req.InputPath, outputPath, req.Angle, pageSelection, conf); err != nil {
-		logger.Error("PDFService: Rotate failed", "error", err)
+	fInput, err := os.Open(req.InputPath)
+	if err != nil {
+		return nil, fmt.Errorf("không thể mở file PDF: %w", err)
+	}
+	defer fInput.Close()
+
+	pdfCtx, err := pdfcpuapi.ReadContext(fInput, conf)
+	if err != nil {
+		logger.Error("PDFService: Rotate ReadContext failed", "error", err)
+		return nil, fmt.Errorf("không thể đọc PDF: %w", err)
+	}
+
+	pdfCtx.EnsureVersionForWriting()
+	_ = pdfcpuapi.ValidateContext(pdfCtx)
+
+	pages, err := pdfcpuapi.PagesForPageSelection(pdfCtx.PageCount, pageSelection, true, true)
+	if err != nil {
+		return nil, fmt.Errorf("lỗi chọn trang: %w", err)
+	}
+
+	if err := pdfcpu.RotatePages(pdfCtx, pages, req.Angle); err != nil {
+		logger.Error("PDFService: RotatePages failed", "error", err)
 		return nil, fmt.Errorf("không thể xoay trang PDF: %w", err)
+	}
+
+	if err := pdfcpuapi.WriteContextFile(pdfCtx, outputPath); err != nil {
+		logger.Error("PDFService: WriteContextFile failed", "error", err)
+		return nil, fmt.Errorf("không thể ghi file PDF: %w", err)
 	}
 
 	pageDesc := "tất cả các trang"

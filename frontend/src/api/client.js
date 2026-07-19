@@ -220,8 +220,17 @@ export const pdfAPI = {
       timeout: 120000,
     });
   },
-  // Download file kết quả từ server
-  downloadUrl: (path) => `${BASE_URL}/private/pdf/download?path=${encodeURIComponent(path)}`,
+  // Download file kết quả từ server với token query param
+  downloadUrl: (path) => {
+    const token = localStorage.getItem('auth_token') || '';
+    return `${BASE_URL}/private/pdf/download?path=${encodeURIComponent(path)}&token=${encodeURIComponent(token)}`;
+  },
+  // Download file qua client Axios với Header Authorization
+  downloadFile: (path) =>
+    client.get('/private/pdf/download', {
+      params: { path },
+      responseType: 'blob',
+    }),
 };
 
 export default client;
