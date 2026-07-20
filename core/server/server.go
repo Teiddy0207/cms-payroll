@@ -150,6 +150,10 @@ func initServer() (*Server, error) {
 		logger.Warn("Failed to seed competency dictionaries", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
+	if err := seed.SeedDepartments(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed departments", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
 	if err := seed.SeedUserProfiles(seedCtx, db); err != nil {
 		logger.Warn("Failed to seed user profiles", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
@@ -168,6 +172,10 @@ func initServer() (*Server, error) {
 	}
 	if err := seed.SeedRolesAndAdminUserRole(seedCtx, db); err != nil {
 		logger.Warn("Failed to seed roles and admin user role", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+	if err := seed.SeedEmployeeUsers(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed employee user accounts", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
 
