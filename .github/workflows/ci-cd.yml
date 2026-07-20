@@ -12,6 +12,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: teiddy0207/cms-payroll
+  FRONTEND_IMAGE_NAME: teiddy0207/cms-payroll-frontend
 
 jobs:
   ci:
@@ -70,6 +71,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build and Push Develop Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:develop
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:dev-${{ github.run_number }}
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: SSH and Deploy to Develop Server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -79,8 +93,8 @@ jobs:
           port: ${{ secrets.DEVELOP_SSH_PORT || 22 }}
           script: |
             cd /app/develop-env
-            docker compose pull my-app
-            docker compose up -d --no-deps my-app
+            docker compose pull my-app frontend
+            docker compose up -d --no-deps my-app frontend
 
   cd-production:
     name: Continuous Delivery to Production
@@ -117,6 +131,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build and Push Production Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:v${{ github.run_number }}
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: SSH and Deploy to Production Server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -126,8 +153,8 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || 22 }}
           script: |
             cd /app/prod-env
-            docker compose pull my-app-prod
-            docker compose up -d --no-deps my-app-prod
+            docker compose pull my-app-prod frontend-prod
+            docker compose up -d --no-deps my-app-prod frontend-prod
 
       - name: Send Telegram Notification
         run: |
