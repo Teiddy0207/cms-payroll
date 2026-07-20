@@ -5,6 +5,7 @@ import (
 	"cal-salary/core/params"
 	"cal-salary/modules/payroll/entity"
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -31,6 +32,8 @@ type PayrollRepositoryInterface interface {
 	GetJobPositionByID(ctx context.Context, id uuid.UUID) (*entity.JobPosition, error)
 	UpdateJobPosition(ctx context.Context, id uuid.UUID, pos *entity.JobPosition) error
 	DeleteJobPosition(ctx context.Context, id uuid.UUID) error
+	GetBenchmarkJobPositions(ctx context.Context) ([]entity.JobPosition, error)
+	GetAllJobPositions(ctx context.Context) ([]entity.JobPosition, error)
 
 	// User Profiles
 	CreateUserProfile(ctx context.Context, profile *entity.UserProfile) (*entity.UserProfile, error)
@@ -48,12 +51,7 @@ type PayrollRepositoryInterface interface {
 	HasActiveContract(ctx context.Context, employeeID uuid.UUID, excludeContractID *uuid.UUID) (bool, error)
 	GetActiveContractByEmployeeID(ctx context.Context, employeeID uuid.UUID) (*entity.Contract, error)
 
-	// Job Standards
-	CreateJobStandard(ctx context.Context, standard *entity.JobStandard) (*entity.JobStandard, error)
-	GetJobStandards(ctx context.Context, params params.QueryParams) ([]entity.JobStandard, int, error)
-	GetJobStandardByID(ctx context.Context, id uuid.UUID) (*entity.JobStandard, error)
-	UpdateJobStandard(ctx context.Context, id uuid.UUID, standard *entity.JobStandard) error
-	DeleteJobStandard(ctx context.Context, id uuid.UUID) error
+
 
 	// Competency Evaluations
 	CreateEvaluation(ctx context.Context, eval *entity.CompetencyEvaluation) (*entity.CompetencyEvaluation, error)
@@ -66,10 +64,7 @@ type PayrollRepositoryInterface interface {
 	GetEmployeeDepartmentID(ctx context.Context, employeeID uuid.UUID) (uuid.UUID, error)
 	IsAdminOrDirector(ctx context.Context, userID uuid.UUID) (bool, error)
 
-	// Job Position Standards
-	AssignStandardToPosition(ctx context.Context, jps *entity.JobPositionStandard) error
-	GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]entity.JobPositionStandardDetail, error)
-	RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) error
+
 
 	// Employee Competencies
 	AssignEmployeeCompetencies(ctx context.Context, userProfileID uuid.UUID, competencyIDs []uuid.UUID) error
@@ -87,4 +82,16 @@ type PayrollRepositoryInterface interface {
 	GetSystemSetting(ctx context.Context, key string) (*entity.SystemSetting, error)
 	SetSystemSetting(ctx context.Context, setting *entity.SystemSetting) error
 	GetAllSystemSettings(ctx context.Context) ([]entity.SystemSetting, error)
+
+	// Payroll Batch Calculation
+	GetOrCreatePeriod(ctx context.Context, month, year int) (*entity.PayrollPeriod, error)
+	GetPayrollPeriodByMonthYear(ctx context.Context, month, year int) (*entity.PayrollPeriod, error)
+	UpsertPayrollRecord(ctx context.Context, record *entity.PayrollRecord, details []entity.PayrollRecordDetail) error
+	GetPayrollRecords(ctx context.Context, periodID uuid.UUID, params params.QueryParams) ([]entity.PayrollRecord, error)
+	GetPayrollRecordDetails(ctx context.Context, recordID uuid.UUID, params params.QueryParams) ([]entity.PayrollRecordDetail, error)
+	GetPayrollFormulasByPeriod(ctx context.Context, start, end time.Time) ([]entity.PayrollFormula, error)
+	CreatePayrollFormula(ctx context.Context, formula *entity.PayrollFormula) (*entity.PayrollFormula, error)
+	GetPayrollFormulas(ctx context.Context) ([]entity.PayrollFormula, error)
+	UpdatePayrollFormula(ctx context.Context, id uuid.UUID, formula *entity.PayrollFormula) error
+	DeletePayrollFormula(ctx context.Context, id uuid.UUID) error
 }

@@ -7,6 +7,17 @@ CREATE TABLE IF NOT EXISTS job_descriptions (
     code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    e_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    c_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    r_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    we_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000,
+    wc_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000,
+    wr_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000,
+    salary_spread DECIMAL(5, 4) NOT NULL DEFAULT 0.0000,
+    job_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    midpoint DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    min_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    max_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -338,6 +349,31 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- 27. Attendance Logs (Raw check-in data)
+CREATE TABLE IF NOT EXISTS attendance_logs (
+    id UUID PRIMARY KEY,
+    employee_code VARCHAR(100) NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    location_gps VARCHAR(255) NOT NULL,
+    device_id VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Idempotency key for the JetStream check-in consumer (ON CONFLICT DO NOTHING dedup).
+ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS event_id UUID;
+UPDATE attendance_logs SET event_id = id WHERE event_id IS NULL;
+ALTER TABLE attendance_logs ALTER COLUMN event_id SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_logs_event_id ON attendance_logs(event_id);
+
+-- 28. Employee Face Templates
+CREATE TABLE IF NOT EXISTS employee_face_templates (
+    id UUID PRIMARY KEY,
+    employee_code VARCHAR(100) NOT NULL UNIQUE,
+    face_data TEXT NOT NULL,
+    face_embedding jsonb,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Default system admin user seeding (required for standard seeds to refer to)
 INSERT INTO job_descriptions (id, code, name, description)
 VALUES ('00000000-0000-0000-0000-000000000000', 'ADMIN_POS', 'Administrator', 'System administrator position')
@@ -346,3 +382,35 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO users (id, email, username, password, position_id, is_active)
 VALUES ('00000000-0000-0000-0000-000000000000', 'admin@example.com', 'admin', '$2a$10$7/Zf9Y.yD8l.y6K4L.9tLeqJ2d3DkP.L6aK7zTj.b.V6D5X2uG.8K', '00000000-0000-0000-0000-000000000000', true)
 ON CONFLICT (username) DO NOTHING;
+
+-- 29. System Settings table
+CREATE TABLE IF NOT EXISTS system_settings (
+    key         VARCHAR(100) PRIMARY KEY,
+    value       TEXT NOT NULL,
+    description TEXT,
+    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO system_settings (key, value, description)
+VALUES 
+('payroll_k_factor', '4000000', 'Hệ số quy đổi lương P1 (K factor) VND/điểm')
+ON CONFLICT (key) DO NOTHING;
+
+-- Ensure existing database has the P1 range columns
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS e_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS c_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS r_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS we_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS wc_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS wr_weight DECIMAL(5, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS salary_spread DECIMAL(5, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS job_score DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS midpoint DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS min_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS max_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS is_benchmark BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS market_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS search_keyword VARCHAR(100);
+
+DELETE FROM system_settings WHERE key = 'company_point_rate';
+

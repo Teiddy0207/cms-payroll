@@ -87,3 +87,32 @@ func (ctrl *PayrollController) DeleteJobPosition(c echo.Context) error {
 	}
 	return ctrl.SuccessResponse(c, nil, "Delete job position success")
 }
+
+func (ctrl *PayrollController) ScrapeMarketSalary(c echo.Context) error {
+	ctx := c.Request().Context()
+	idStr := c.Param("id")
+	var id uuid.UUID
+	if idStr != "" && idStr != "new" {
+		id, _ = uuid.Parse(idStr)
+	}
+	
+	req := new(dto.ScrapeMarketSalaryRequest)
+	if err := c.Bind(req); err != nil {
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Invalid request data", nil)
+	}
+
+	resp, appErr := ctrl.Service.ScrapeMarketSalary(ctx, id, req)
+	if appErr != nil {
+		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
+	}
+	return ctrl.SuccessResponse(c, resp, "Scraped market salary successfully")
+}
+
+func (ctrl *PayrollController) CalculateKAndUpdate(c echo.Context) error {
+	ctx := c.Request().Context()
+	resp, appErr := ctrl.Service.CalculateKAndUpdate(ctx)
+	if appErr != nil {
+		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
+	}
+	return ctrl.SuccessResponse(c, resp, "Recalculated K factor via OLS regression successfully")
+}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"cal-salary/core/cache"
 	"cal-salary/core/errors"
 	"cal-salary/core/params"
 	"cal-salary/modules/payroll/dto"
@@ -11,11 +12,12 @@ import (
 )
 
 type PayrollService struct {
-	repo repository.PayrollRepositoryInterface
+	repo  repository.PayrollRepositoryInterface
+	cache *cache.Cache
 }
 
-func NewPayrollService(repo repository.PayrollRepositoryInterface) *PayrollService {
-	return &PayrollService{repo: repo}
+func NewPayrollService(repo repository.PayrollRepositoryInterface, redisCache *cache.Cache) *PayrollService {
+	return &PayrollService{repo: repo, cache: redisCache}
 }
 
 type PayrollServiceInterface interface {
@@ -32,6 +34,8 @@ type PayrollServiceInterface interface {
 	GetJobPositionByID(ctx context.Context, id uuid.UUID) (*dto.JobPositionResponse, *errors.AppError)
 	UpdateJobPosition(ctx context.Context, id uuid.UUID, req *dto.UpdateJobPositionRequest) *errors.AppError
 	DeleteJobPosition(ctx context.Context, id uuid.UUID) *errors.AppError
+	ScrapeMarketSalary(ctx context.Context, id uuid.UUID, req *dto.ScrapeMarketSalaryRequest) (*dto.ScrapeMarketSalaryResponse, *errors.AppError)
+	CalculateKAndUpdate(ctx context.Context) (*dto.CalculateKResponse, *errors.AppError)
 
 	// User Profiles
 	CreateUserProfile(ctx context.Context, req *dto.CreateUserProfileRequest) (*dto.UserProfileResponse, *errors.AppError)
@@ -47,13 +51,6 @@ type PayrollServiceInterface interface {
 	UpdateContract(ctx context.Context, id uuid.UUID, req *dto.UpdateContractRequest) *errors.AppError
 	DeleteContract(ctx context.Context, id uuid.UUID) *errors.AppError
 
-	// Job Standards
-	CreateJobStandard(ctx context.Context, req *dto.CreateJobStandardRequest) (*dto.JobStandardResponse, *errors.AppError)
-	GetJobStandards(ctx context.Context, params params.QueryParams) (*dto.PaginatedJobStandardDTO, *errors.AppError)
-	GetJobStandardByID(ctx context.Context, id uuid.UUID) (*dto.JobStandardResponse, *errors.AppError)
-	UpdateJobStandard(ctx context.Context, id uuid.UUID, req *dto.UpdateJobStandardRequest) *errors.AppError
-	DeleteJobStandard(ctx context.Context, id uuid.UUID) *errors.AppError
-
 	// Competencies (Dictionary)
 	CreateCompetency(ctx context.Context, req *dto.CreateCompetencyRequest) (*dto.CompetencyResponse, *errors.AppError)
 	GetCompetencies(ctx context.Context, params params.QueryParams) (*dto.PaginatedCompetencyDTO, *errors.AppError)
@@ -68,11 +65,6 @@ type PayrollServiceInterface interface {
 	UpdateEvaluation(ctx context.Context, id uuid.UUID, req *dto.CompetencyScoreInput) *errors.AppError
 	DeleteEvaluation(ctx context.Context, id uuid.UUID) *errors.AppError
 
-	// Job Position Standards
-	AssignStandardToPosition(ctx context.Context, positionID uuid.UUID, req *dto.AssignStandardRequest) *errors.AppError
-	GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]dto.JobPositionStandardResponse, *errors.AppError)
-	RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) *errors.AppError
-
 	// Employee Competencies
 	AssignEmployeeCompetencies(ctx context.Context, userProfileID uuid.UUID, req *dto.AssignEmployeeCompetenciesRequest) *errors.AppError
 	GetCompetenciesByEmployee(ctx context.Context, userProfileID uuid.UUID) ([]dto.EmployeeCompetencyResponse, *errors.AppError)
@@ -85,4 +77,14 @@ type PayrollServiceInterface interface {
 
 	// Calculator
 	PreviewSalary(ctx context.Context, employeeID uuid.UUID, period string) (*dto.SalaryPreviewResponse, *errors.AppError)
+	RunSalaryCalculation(ctx context.Context, req *dto.SalaryCalculationRequest) (*dto.SalaryCalculationResponse, *errors.AppError)
+	RunSalaryCalculationAsync(ctx context.Context, req *dto.SalaryCalculationRequest) (string, *errors.AppError)
+	GetCalculationJobStatus(ctx context.Context, jobID string) (map[string]any, *errors.AppError)
+	GetSavedPayrollRecords(ctx context.Context, period string, param params.QueryParams) ([]dto.SalaryCalculationItem, *errors.AppError)
+
+	// Formulas CRUD,
+	CreatePayrollFormula(ctx context.Context, req *dto.CreateFormulaRequest) (*dto.FormulaResponse, *errors.AppError)
+	GetPayrollFormulas(ctx context.Context) ([]dto.FormulaResponse, *errors.AppError)
+	UpdatePayrollFormula(ctx context.Context, id uuid.UUID, req *dto.UpdateFormulaRequest) *errors.AppError
+	DeletePayrollFormula(ctx context.Context, id uuid.UUID) *errors.AppError
 }

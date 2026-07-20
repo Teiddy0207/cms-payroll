@@ -1,6 +1,7 @@
 package payroll
 
 import (
+	"cal-salary/core/cache"
 	"cal-salary/core/database"
 	"cal-salary/core/middleware"
 	activitylog "cal-salary/modules/activity_log/service"
@@ -17,10 +18,9 @@ type PayrollModule struct {
 	repo    repository.PayrollRepositoryInterface
 }
 
-// Init initializes the payroll module repo and service layers
-func Init(db database.Database) *PayrollModule {
+func Init(db database.Database, redisCache *cache.Cache) *PayrollModule {
 	repo := repository.NewPayrollRepository(db)
-	svc := service.NewPayrollService(repo)
+	svc := service.NewPayrollService(repo, redisCache)
 	return &PayrollModule{
 		Service: svc,
 		repo:    repo,

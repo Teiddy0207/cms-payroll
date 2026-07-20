@@ -9,53 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// ==========================================
-// Job Position Standards Repository
-// ==========================================
 
-func (r *PayrollRepository) AssignStandardToPosition(ctx context.Context, jps *entity.JobPositionStandard) error {
-	query := `
-		INSERT INTO job_position_standards (job_description_id, job_standard_id, created_at)
-		VALUES (:job_description_id, :job_standard_id, NOW())
-		ON CONFLICT (job_description_id, job_standard_id) DO NOTHING
-	`
-	_, err := r.DB.NamedExecContext(ctx, query, jps)
-	if err != nil {
-		logger.Error("PayrollRepository:AssignStandardToPosition:Error %v", err)
-		return err
-	}
-	return nil
-}
-
-func (r *PayrollRepository) GetStandardsByPosition(ctx context.Context, positionID uuid.UUID) ([]entity.JobPositionStandardDetail, error) {
-	query := `
-		SELECT jps.job_description_id, jps.job_standard_id, js.standard_code, js.name AS standard_name, js.allowance_value
-		FROM job_position_standards jps
-		JOIN job_standards js ON jps.job_standard_id = js.id
-		WHERE jps.job_description_id = $1
-		ORDER BY js.standard_code ASC
-	`
-	var list []entity.JobPositionStandardDetail
-	err := r.DB.SelectContext(ctx, &list, query, positionID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return []entity.JobPositionStandardDetail{}, nil
-		}
-		logger.Error("PayrollRepository:GetStandardsByPosition:Error %v", err)
-		return nil, err
-	}
-	return list, nil
-}
-
-func (r *PayrollRepository) RemoveStandardFromPosition(ctx context.Context, positionID uuid.UUID, standardID uuid.UUID) error {
-	query := `DELETE FROM job_position_standards WHERE job_description_id = $1 AND job_standard_id = $2`
-	_, err := r.DB.SQLx().ExecContext(ctx, query, positionID, standardID)
-	if err != nil {
-		logger.Error("PayrollRepository:RemoveStandardFromPosition:Error %v", err)
-		return err
-	}
-	return nil
-}
 
 // ==========================================
 // Employee Competencies Repository

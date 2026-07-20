@@ -79,7 +79,7 @@ jobs:
           port: ${{ secrets.DEVELOP_SSH_PORT || 22 }}
           script: |
             cd /app/develop-env
-            docker compose pull my-app-service
+            docker compose pull my-app
             docker compose up -d --no-deps my-app
 
   cd-production:
@@ -126,7 +126,7 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || 22 }}
           script: |
             cd /app/prod-env
-            docker compose pull my-app-prod-service
+            docker compose pull my-app-prod
             docker compose up -d --no-deps my-app-prod
 
       - name: Send Telegram Notification

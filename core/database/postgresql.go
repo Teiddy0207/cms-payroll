@@ -69,6 +69,8 @@ func runSchemaInit(db *Database) error {
 		return fmt.Errorf("failed to execute schema DDL: %w", err)
 	}
 
+	_, _ = db.sqlx.Exec("ALTER TABLE employee_face_templates ADD COLUMN IF NOT EXISTS face_embedding jsonb;")
+
 	logger.Info("Schema initialized successfully!")
 	return nil
 }
