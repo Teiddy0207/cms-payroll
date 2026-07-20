@@ -296,22 +296,20 @@ func (s *TimekeepingServiceImpl) GetDailyAttendanceSheets(ctx context.Context, u
 	var departmentIDFilter *uuid.UUID
 
 	if !isAdmin {
-		// Không phải admin → cần profile để xác định phạm vi dữ liệu
-		profile, err := s.getProfileByUserID(ctx, userID)
-		if err != nil {
-			fmt.Printf("DEBUG: getProfileByUserID error: %v, UserID=%s\n", err, userID)
-			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân viên", err)
-		}
-
-		if isManager {
-			deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
-			if errDept == nil {
-				departmentIDFilter = &deptID
+		// Không phải admin → dùng profile để giới hạn phạm vi dữ liệu nếu có.
+		// Tạm thời bỏ yêu cầu bắt buộc phải có hồ sơ nhân sự: nếu không tìm
+		// thấy, không áp filter thay vì chặn truy cập.
+		if profile, err := s.getProfileByUserID(ctx, userID); err == nil {
+			if isManager {
+				deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
+				if errDept == nil {
+					departmentIDFilter = &deptID
+				} else {
+					employeeIDFilter = &profile.ID
+				}
 			} else {
 				employeeIDFilter = &profile.ID
 			}
-		} else {
-			employeeIDFilter = &profile.ID
 		}
 	} else {
 		if deptIDStr, ok := qp.Filters["department_id"]; ok && deptIDStr != "" {
@@ -415,20 +413,19 @@ func (s *TimekeepingServiceImpl) GetAttendanceLogsList(ctx context.Context, user
 	var departmentIDFilter *uuid.UUID
 
 	if !isAdmin {
-		profile, err := s.getProfileByUserID(ctx, userID)
-		if err != nil {
-			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân viên", err)
-		}
-
-		if isManager {
-			deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
-			if errDept == nil {
-				departmentIDFilter = &deptID
+		// Tạm thời bỏ yêu cầu bắt buộc phải có hồ sơ nhân sự: nếu không tìm
+		// thấy, không áp filter thay vì chặn truy cập.
+		if profile, err := s.getProfileByUserID(ctx, userID); err == nil {
+			if isManager {
+				deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
+				if errDept == nil {
+					departmentIDFilter = &deptID
+				} else {
+					employeeIDFilter = &profile.ID
+				}
 			} else {
 				employeeIDFilter = &profile.ID
 			}
-		} else {
-			employeeIDFilter = &profile.ID
 		}
 	} else {
 		if deptIDStr, ok := qp.Filters["department_id"]; ok && deptIDStr != "" {
@@ -690,20 +687,19 @@ func (s *TimekeepingServiceImpl) GetExplanationRequests(ctx context.Context, use
 	var departmentIDFilter *uuid.UUID
 
 	if !isAdmin {
-		profile, err := s.getProfileByUserID(ctx, userID)
-		if err != nil {
-			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân sự", err)
-		}
-
-		if isManager {
-			deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
-			if errDept == nil {
-				departmentIDFilter = &deptID
+		// Tạm thời bỏ yêu cầu bắt buộc phải có hồ sơ nhân sự: nếu không tìm
+		// thấy, không áp filter thay vì chặn truy cập.
+		if profile, err := s.getProfileByUserID(ctx, userID); err == nil {
+			if isManager {
+				deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
+				if errDept == nil {
+					departmentIDFilter = &deptID
+				} else {
+					employeeIDFilter = &profile.ID
+				}
 			} else {
 				employeeIDFilter = &profile.ID
 			}
-		} else {
-			employeeIDFilter = &profile.ID
 		}
 	}
 
@@ -842,20 +838,19 @@ func (s *TimekeepingServiceImpl) GetOTRequests(ctx context.Context, userID uuid.
 	var departmentIDFilter *uuid.UUID
 
 	if !isAdmin {
-		profile, err := s.getProfileByUserID(ctx, userID)
-		if err != nil {
-			return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy hồ sơ nhân sự", err)
-		}
-
-		if isManager {
-			deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
-			if errDept == nil {
-				departmentIDFilter = &deptID
+		// Tạm thời bỏ yêu cầu bắt buộc phải có hồ sơ nhân sự: nếu không tìm
+		// thấy, không áp filter thay vì chặn truy cập.
+		if profile, err := s.getProfileByUserID(ctx, userID); err == nil {
+			if isManager {
+				deptID, errDept := s.payrollRepo.GetManagedDepartmentID(ctx, userID)
+				if errDept == nil {
+					departmentIDFilter = &deptID
+				} else {
+					employeeIDFilter = &profile.ID
+				}
 			} else {
 				employeeIDFilter = &profile.ID
 			}
-		} else {
-			employeeIDFilter = &profile.ID
 		}
 	}
 
