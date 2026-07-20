@@ -59,7 +59,10 @@ type RedisConfig struct {
 }
 
 type NatsConfig struct {
-	Url string `mapstructure:"url"`
+	Url             string `mapstructure:"url"`
+	StreamName      string `mapstructure:"stream_name"`
+	CheckinSubject  string `mapstructure:"checkin_subject"`
+	DurableConsumer string `mapstructure:"durable_consumer"`
 }
 
 type MinIOConfig struct {
@@ -170,6 +173,10 @@ func Init(env Environment) error {
 		v.SetDefault("environment", string(env))
 		v.SetDefault("server.port", 7070)
 		v.SetDefault("server.host", "0.0.0.0")
+		v.SetDefault("nats.url", "nats://127.0.0.1:4222")
+		v.SetDefault("nats.stream_name", "ATTENDANCE_CHECKINS")
+		v.SetDefault("nats.checkin_subject", "attendance.checkin")
+		v.SetDefault("nats.durable_consumer", "attendance-checkin-consumer")
 
 		v.AutomaticEnv()
 		v.SetEnvPrefix("APP")
@@ -199,6 +206,12 @@ func Init(env Environment) error {
 		v.BindEnv("redis.address", "APP_REDIS_ADDRESS")
 		v.BindEnv("redis.password", "APP_REDIS_PASSWORD")
 		v.BindEnv("redis.db", "APP_REDIS_DB")
+
+		// NATS configuration
+		v.BindEnv("nats.url", "APP_NATS_URL")
+		v.BindEnv("nats.stream_name", "APP_NATS_STREAM_NAME")
+		v.BindEnv("nats.checkin_subject", "APP_NATS_CHECKIN_SUBJECT")
+		v.BindEnv("nats.durable_consumer", "APP_NATS_DURABLE_CONSUMER")
 
 		// JWT configuration
 		v.BindEnv("jwt.secret", "APP_JWT_SECRET")

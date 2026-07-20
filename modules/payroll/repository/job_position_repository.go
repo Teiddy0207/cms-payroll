@@ -19,9 +19,26 @@ func (r *PayrollRepository) CreateJobPosition(ctx context.Context, pos *entity.J
 		pos.ID = uuid.New()
 	}
 	query := `
-		INSERT INTO job_descriptions (id, code, name, description, department_id, created_at, updated_at)
-		VALUES (:id, :code, :name, :description, :department_id, NOW(), NOW())
-		RETURNING id, code, name, description, department_id, created_at, updated_at
+		INSERT INTO job_descriptions (
+			id, code, name, description, department_id,
+			e_score, c_score, r_score, we_weight, wc_weight, wr_weight,
+			salary_spread, job_score, midpoint, min_salary, max_salary,
+			is_benchmark, market_salary, search_keyword,
+			created_at, updated_at
+		)
+		VALUES (
+			:id, :code, :name, :description, :department_id,
+			:e_score, :c_score, :r_score, :we_weight, :wc_weight, :wr_weight,
+			:salary_spread, :job_score, :midpoint, :min_salary, :max_salary,
+			:is_benchmark, :market_salary, :search_keyword,
+			NOW(), NOW()
+		)
+		RETURNING 
+			id, code, name, description, department_id,
+			e_score, c_score, r_score, we_weight, wc_weight, wr_weight,
+			salary_spread, job_score, midpoint, min_salary, max_salary,
+			is_benchmark, market_salary, search_keyword,
+			created_at, updated_at
 	`
 	rows, err := r.DB.NamedQueryContext(ctx, query, pos)
 	if err != nil {
@@ -68,7 +85,12 @@ func (r *PayrollRepository) GetJobPositions(ctx context.Context, qp params.Query
 	}
 
 	dataQuery := `
-		SELECT j.id, j.code, j.name, j.description, j.department_id, j.created_at, j.updated_at
+		SELECT 
+			j.id, j.code, j.name, j.description, j.department_id,
+			j.e_score, j.c_score, j.r_score, j.we_weight, j.wc_weight, j.wr_weight,
+			j.salary_spread, j.job_score, j.midpoint, j.min_salary, j.max_salary,
+			j.is_benchmark, j.market_salary, j.search_keyword,
+			j.created_at, j.updated_at
 	` + baseQuery + whereClause + ` ORDER BY j.name ASC, j.created_at DESC`
 
 	dataQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
@@ -89,7 +111,16 @@ func (r *PayrollRepository) GetJobPositions(ctx context.Context, qp params.Query
 
 func (r *PayrollRepository) GetJobPositionByID(ctx context.Context, id uuid.UUID) (*entity.JobPosition, error) {
 	var pos entity.JobPosition
-	query := `SELECT id, code, name, description, department_id, created_at, updated_at FROM job_descriptions WHERE id = $1`
+	query := `
+		SELECT 
+			id, code, name, description, department_id,
+			e_score, c_score, r_score, we_weight, wc_weight, wr_weight,
+			salary_spread, job_score, midpoint, min_salary, max_salary,
+			is_benchmark, market_salary, search_keyword,
+			created_at, updated_at 
+		FROM job_descriptions 
+		WHERE id = $1
+	`
 	err := r.DB.GetContext(ctx, &pos, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -104,7 +135,25 @@ func (r *PayrollRepository) GetJobPositionByID(ctx context.Context, id uuid.UUID
 func (r *PayrollRepository) UpdateJobPosition(ctx context.Context, id uuid.UUID, pos *entity.JobPosition) error {
 	query := `
 		UPDATE job_descriptions
-		SET name = :name, description = :description, department_id = :department_id, updated_at = NOW()
+		SET 
+			name = :name, 
+			description = :description, 
+			department_id = :department_id,
+			e_score = :e_score,
+			c_score = :c_score,
+			r_score = :r_score,
+			we_weight = :we_weight,
+			wc_weight = :wc_weight,
+			wr_weight = :wr_weight,
+			salary_spread = :salary_spread,
+			job_score = :job_score,
+			midpoint = :midpoint,
+			min_salary = :min_salary,
+			max_salary = :max_salary,
+			is_benchmark = :is_benchmark,
+			market_salary = :market_salary,
+			search_keyword = :search_keyword,
+			updated_at = NOW()
 		WHERE id = :id
 	`
 	pos.ID = id
@@ -132,4 +181,51 @@ func (r *PayrollRepository) DeleteJobPosition(ctx context.Context, id uuid.UUID)
 		return err
 	}
 	return nil
+}
+
+func (r *PayrollRepository) GetBenchmarkJobPositions(ctx context.Context) ([]entity.JobPosition, error) {
+	query := `
+		SELECT 
+			id, code, name, description, department_id,
+			e_score, c_score, r_score, we_weight, wc_weight, wr_weight,
+			salary_spread, job_score, midpoint, min_salary, max_salary,
+			is_benchmark, market_salary, search_keyword,
+			created_at, updated_at 
+		FROM job_descriptions 
+		WHERE is_benchmark = TRUE AND job_score > 0 AND market_salary > 0
+		ORDER BY name ASC
+	`
+	var list []entity.JobPosition
+	err := r.DB.SelectContext(ctx, &list, query)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []entity.JobPosition{}, nil
+		}
+		logger.Error("PayrollRepository:GetBenchmarkJobPositions:Error %v", err)
+		return nil, err
+	}
+	return list, nil
+}
+
+func (r *PayrollRepository) GetAllJobPositions(ctx context.Context) ([]entity.JobPosition, error) {
+	query := `
+		SELECT 
+			id, code, name, description, department_id,
+			e_score, c_score, r_score, we_weight, wc_weight, wr_weight,
+			salary_spread, job_score, midpoint, min_salary, max_salary,
+			is_benchmark, market_salary, search_keyword,
+			created_at, updated_at 
+		FROM job_descriptions
+		ORDER BY name ASC
+	`
+	var list []entity.JobPosition
+	err := r.DB.SelectContext(ctx, &list, query)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []entity.JobPosition{}, nil
+		}
+		logger.Error("PayrollRepository:GetAllJobPositions:Error %v", err)
+		return nil, err
+	}
+	return list, nil
 }

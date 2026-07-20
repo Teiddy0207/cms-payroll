@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: cal_salary_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: cal_salary
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cal_salary"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cal_salary_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2-alpine
+    container_name: cal_salary_nats
+    restart: always
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    ports:
+      - "4222:4222"
+    volumes:
+      - natsdata:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  my-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cal_salary_app
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    ports:
+      - "7070:7070"
+    environment:
+      - DOCKER_CONTAINER=true
+      - APP_DATABASE_HOST=db
+      - APP_DATABASE_PORT=5432
+      - APP_DATABASE_USER=postgres
+      - APP_DATABASE_PASSWORD=password123
+      - APP_DATABASE_DBNAME=cal_salary
+      - APP_REDIS_ADDRESS=redis:6379
+      - APP_REDIS_PASSWORD=
+      - APP_REDIS_DB=0
+      - APP_NATS_URL=nats://nats:4222
+      - APP_JWT_SECRET=supersecretjwtkey123!@#
+      - APP_SERVER_HOST=0.0.0.0
+      - APP_SERVER_PORT=7070
+
+volumes:
+  pgdata:
+  redisdata:
+  natsdata:

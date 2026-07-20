@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gofmt -l -w modules/auth/service modules/activity_log/service modules/timekeeping/service modules/payroll/service)",
+      "Bash(go build *)",
+      "Bash(python3 /tmp/claude-1000/-home-cms-payroll/65fe5bb5-1e24-4ac7-b7eb-cf2263094034/scratchpad/scan.py)",
+      "Bash(echo \"build exit: $?\")",
+      "Bash(go vet *)",
+      "Bash(curl -s -X POST http://127.0.0.1:17070/api/v1/private/payroll/calculator/formulas -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInVzZXJuYW1lIjoiYWRtaW4iLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4Mzg1Mzc1MCwianRpIjoiYmI0YmIzNjItNTUxNi00ZWFmLThiNWUtMDc4ZGM5MWMxZjcxIn0.bTkmTSINwisWg9vSZ3PIawPeU77QUuzdOJnzPkDmaUI' -H 'Content-Type: application/json' -d '{\"variable_name\":\"P3\",\"expression\":\"P1 * 0.05\",\"start_date\":\"2026-07-01\"}' -w '\\\\nHTTP:%{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://127.0.0.1:17070/api/v1/private/payroll/calculator/formulas -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInVzZXJuYW1lIjoiYWRtaW4iLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4Mzg1Mzc1MCwianRpIjoiYmI0YmIzNjItNTUxNi00ZWFmLThiNWUtMDc4ZGM5MWMxZjcxIn0.bTkmTSINwisWg9vSZ3PIawPeU77QUuzdOJnzPkDmaUI' -H 'Content-Type: application/json' -d '{\"variable_name\":\"P3\",\"expression\":\"P1 * 0.05\",\"start_date\":\"2026-07-01T00:00:00Z\"}' -w '\\\\nHTTP:%{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://127.0.0.1:17070/api/v1/private/payroll/calculator/formulas -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInVzZXJuYW1lIjoiYWRtaW4iLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4Mzg1Mzc1MCwianRpIjoiYmI0YmIzNjItNTUxNi00ZWFmLThiNWUtMDc4ZGM5MWMxZjcxIn0.bTkmTSINwisWg9vSZ3PIawPeU77QUuzdOJnzPkDmaUI' -H 'Content-Type: application/json' -d '{\"variable_name\":\"BONUS_X\",\"expression\":\"P3 + 1\",\"start_date\":\"2026-07-01T00:00:00Z\"}' -w '\\\\nHTTP:%{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://127.0.0.1:17070/api/v1/private/payroll/calculator/formulas -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInVzZXJuYW1lIjoiYWRtaW4iLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4Mzg1Mzc1MCwianRpIjoiYmI0YmIzNjItNTUxNi00ZWFmLThiNWUtMDc4ZGM5MWMxZjcxIn0.bTkmTSINwisWg9vSZ3PIawPeU77QUuzdOJnzPkDmaUI' -H 'Content-Type: application/json' -d '{\"variable_name\":\"P3\",\"expression\":\"BONUS_X + 1\",\"start_date\":\"2026-08-01T00:00:00Z\"}' -w '\\\\nHTTP:%{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://127.0.0.1:17070/api/v1/private/payroll/calculator/run -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInVzZXJuYW1lIjoiYWRtaW4iLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4Mzg1Mzc1MCwianRpIjoiYmI0YmIzNjItNTUxNi00ZWFmLThiNWUtMDc4ZGM5MWMxZjcxIn0.bTkmTSINwisWg9vSZ3PIawPeU77QUuzdOJnzPkDmaUI' -H 'Content-Type: application/json' -d '{\"period\":\"2026-07\"}' -w '\\\\nHTTP:%{http_code}\\\\n')",
+      "Bash(pkill -f \"go run \\\\. -env dev\")"
+    ]
+  }
+}

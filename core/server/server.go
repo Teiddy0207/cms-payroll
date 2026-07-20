@@ -6,6 +6,7 @@ import (
 	"cal-salary/core/database"
 	inmemcache "cal-salary/core/inmem_cache"
 	"cal-salary/core/logger"
+	"cal-salary/core/messaging"
 	"cal-salary/core/middleware"
 	"cal-salary/core/seed"
 	coreStorage "cal-salary/core/storage"
@@ -13,6 +14,8 @@ import (
 	"cal-salary/modules/activity_log"
 	"cal-salary/modules/auth"
 	"cal-salary/modules/payroll"
+	"cal-salary/modules/pdf"
+	"cal-salary/modules/timekeeping"
 	"context"
 	"flag"
 	"fmt"
@@ -24,13 +27,15 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 )
 
 type Server struct {
-	echo  *echo.Echo
-	addr  string
-	cache *cache.Cache
-	db    database.Database
+	echo       *echo.Echo
+	addr       string
+	cache      *cache.Cache
+	db         database.Database
+	natsClient *messaging.NatsClient
 }
 
 func initEnvironment() (config.Environment, error) {
@@ -99,6 +104,14 @@ func initServer() (*Server, error) {
 		cfg.Redis.DB,
 	)
 
+	// Initialize NATS JetStream client (optional for local dev: log warning if missing)
+	var natsClient *messaging.NatsClient
+	natsClient, err = messaging.NewNatsClient(cfg.Nats.Url)
+	if err != nil {
+		logger.Warn("NATS connection failed, running in local development mode without NATS JetStream", "error", err)
+		natsClient = nil
+	}
+
 	// Initialize in-memory cache
 	inmemCache := inmemcache.NewInMemoryCache()
 	if inmemCache == nil {
@@ -141,8 +154,20 @@ func initServer() (*Server, error) {
 		logger.Warn("Failed to seed user profiles", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
+	if err := seed.SeedAttendanceData(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed attendance data", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+	if err := seed.SeedJobPositions(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed job positions", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
 	if err := seed.SeedPermissions(seedCtx, db); err != nil {
 		logger.Warn("Failed to seed permissions", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+	if err := seed.SeedRolesAndAdminUserRole(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed roles and admin user role", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
 
@@ -177,6 +202,7 @@ func initServer() (*Server, error) {
 	// Middleware
 	e.Use(middleware.LoggerMiddleware())
 	e.Use(middleware.CORSMiddleware())
+	e.Use(echomiddleware.Recover()) // Tránh server crash khi có panic trong handler
 
 	e.Use(echo.MiddlewareFunc(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -194,14 +220,24 @@ func initServer() (*Server, error) {
 	activityLogSvc := activity_log.Init(e, db, middlewareInstance)
 	authMod.SetupRouter(e, middlewareInstance, activityLogSvc)
 
-	payrollMod := payroll.Init(db)
+	payrollMod := payroll.Init(db, redisCache)
 	payrollMod.SetupRouter(e, middlewareInstance, activityLogSvc)
 
+	timekeepingMod := timekeeping.Init(db, redisCache, natsClient, cfg.Nats)
+	timekeepingMod.SetupRouter(e, middlewareInstance, activityLogSvc)
+
+	pdfMod := pdf.Init()
+	pdfMod.SetupRouter(e, middlewareInstance)
+	if err := pdfMod.StartWatcher(context.Background()); err != nil {
+		logger.Warn("PDFModule: Failed to start folder watcher", "error", err)
+	}
+
 	return &Server{
-		echo:  e,
-		addr:  fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
-		cache: redisCache,
-		db:    db,
+		echo:       e,
+		addr:       fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
+		cache:      redisCache,
+		db:         db,
+		natsClient: natsClient,
 	}, nil
 }
 
@@ -238,6 +274,11 @@ func (s *Server) start() error {
 	// Close Redis connection
 	if err := s.cache.Close(); err != nil {
 		logger.Error("Failed to close Redis connection", "error", err)
+	}
+
+	// Drain NATS connection (flushes in-flight publishes/acks before closing)
+	if s.natsClient != nil {
+		s.natsClient.Close()
 	}
 
 	logger.Info("Server shutdown complete")
