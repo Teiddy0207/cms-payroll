@@ -1,7 +1,9 @@
 import { useLocation } from 'react-router-dom';
+import NotificationBell from './NotificationBell.jsx';
 
 const routeTitles = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Tổng quan hệ thống' },
+  '/meetings': { title: 'Lịch họp Lãnh đạo & Video Call', subtitle: 'Quản lý cuộc họp, sync Google Schedule & phòng họp WebRTC' },
   '/employees': { title: 'Quản lý nhân viên', subtitle: 'Danh sách & thông tin nhân viên' },
   '/contracts': { title: 'Hợp đồng lao động', subtitle: 'Quản lý hợp đồng' },
   '/departments': { title: 'Phòng ban', subtitle: 'Quản lý cơ cấu tổ chức' },
@@ -24,6 +26,7 @@ export function Topbar() {
         {info.subtitle && <p className="topbar-subtitle">{info.subtitle}</p>}
       </div>
       <div className="topbar-right">
+        <NotificationBell />
         <div className="topbar-date">{dateStr}</div>
         <div className="topbar-user">
           <div className="topbar-avatar">A</div>

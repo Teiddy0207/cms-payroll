@@ -17,7 +17,8 @@ import TimesheetsPage from './pages/TimesheetsPage.jsx';
 import AttendanceLogsPage from './pages/AttendanceLogsPage.jsx';
 import ExplanationRequestsPage from './pages/ExplanationRequestsPage.jsx';
 import OTRequestsPage from './pages/OTRequestsPage.jsx';
-import PDFToolsPage from './pages/PDFToolsPage.jsx';
+import Meetings from './pages/Meetings.jsx';
+import VideoMeetingRoom from './pages/VideoMeetingRoom.jsx';
 import { ConfigProvider } from 'antd';
 
 function ProtectedRoute({ children }) {
@@ -71,6 +72,8 @@ function App() {
               <Route path="competencies" element={<CompetenciesPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="pdf-tools" element={<PDFToolsPage />} />
+              <Route path="meetings" element={<Meetings />} />
+              <Route path="meetings/room/:id" element={<VideoMeetingRoom />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
           </Routes>

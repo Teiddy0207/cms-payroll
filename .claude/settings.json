@@ -11,7 +11,15 @@
       "Bash(curl -s -X POST http://127.0.0.1:17070/api/v1/private/payroll/calculator/formulas -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInVzZXJuYW1lIjoiYWRtaW4iLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4Mzg1Mzc1MCwianRpIjoiYmI0YmIzNjItNTUxNi00ZWFmLThiNWUtMDc4ZGM5MWMxZjcxIn0.bTkmTSINwisWg9vSZ3PIawPeU77QUuzdOJnzPkDmaUI' -H 'Content-Type: application/json' -d '{\"variable_name\":\"BONUS_X\",\"expression\":\"P3 + 1\",\"start_date\":\"2026-07-01T00:00:00Z\"}' -w '\\\\nHTTP:%{http_code}\\\\n')",
       "Bash(curl -s -X POST http://127.0.0.1:17070/api/v1/private/payroll/calculator/formulas -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInVzZXJuYW1lIjoiYWRtaW4iLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4Mzg1Mzc1MCwianRpIjoiYmI0YmIzNjItNTUxNi00ZWFmLThiNWUtMDc4ZGM5MWMxZjcxIn0.bTkmTSINwisWg9vSZ3PIawPeU77QUuzdOJnzPkDmaUI' -H 'Content-Type: application/json' -d '{\"variable_name\":\"P3\",\"expression\":\"BONUS_X + 1\",\"start_date\":\"2026-08-01T00:00:00Z\"}' -w '\\\\nHTTP:%{http_code}\\\\n')",
       "Bash(curl -s -X POST http://127.0.0.1:17070/api/v1/private/payroll/calculator/run -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInVzZXJuYW1lIjoiYWRtaW4iLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4Mzg1Mzc1MCwianRpIjoiYmI0YmIzNjItNTUxNi00ZWFmLThiNWUtMDc4ZGM5MWMxZjcxIn0.bTkmTSINwisWg9vSZ3PIawPeU77QUuzdOJnzPkDmaUI' -H 'Content-Type: application/json' -d '{\"period\":\"2026-07\"}' -w '\\\\nHTTP:%{http_code}\\\\n')",
-      "Bash(pkill -f \"go run \\\\. -env dev\")"
+      "Bash(pkill -f \"go run \\\\. -env dev\")",
+      "Bash(git fetch *)",
+      "Bash(curl -s https://quanh.top/api/v1/private/payroll/job-positions -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOTIzNTVkMTktNGIxOS00ZjNlLWFhNDUtNDg0ZmQzNzZhYmExIiwiZW1haWwiOiIiLCJ1c2VybmFtZSI6IjA5ODc2NTQzMjEiLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4NTEzMjE5MSwiaWF0IjoxNzg0NTI3MzkxLCJqdGkiOiI0ZDA2ZDcyMy05ODgzLTQwODEtYmU2ZC04MTFmZjljOWYzMjkifQ.2tAOZjWdBzAo2TMKj3iF3Q9cPZSRWrcwFbOkx9n7D_4')",
+      "Bash(curl -s -X POST https://quanh.top/api/v1/private/payroll/job-positions -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOTIzNTVkMTktNGIxOS00ZjNlLWFhNDUtNDg0ZmQzNzZhYmExIiwiZW1haWwiOiIiLCJ1c2VybmFtZSI6IjA5ODc2NTQzMjEiLCJzY29wZSI6ImFjY2VzcyIsImV4cCI6MTc4NTEzMjE5MSwiaWF0IjoxNzg0NTI3MzkxLCJqdGkiOiI0ZDA2ZDcyMy05ODgzLTQwODEtYmU2ZC04MTFmZjljOWYzMjkifQ.2tAOZjWdBzAo2TMKj3iF3Q9cPZSRWrcwFbOkx9n7D_4' -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP_STATUS:%{http_code}\\\\n\" https://quanh.top/)",
+      "Bash(curl -s https://quanh.top/)",
+      "Bash(curl -s -o /dev/null -w \"HTTP_STATUS:%{http_code}\\\\n\" https://quanh.top/api/v1/public/auth/login)"
     ]
   }
 }

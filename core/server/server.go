@@ -11,8 +11,10 @@ import (
 	"cal-salary/core/seed"
 	coreStorage "cal-salary/core/storage"
 	"cal-salary/core/utils"
+	"cal-salary/core/google"
 	"cal-salary/modules/activity_log"
 	"cal-salary/modules/auth"
+	"cal-salary/modules/meeting"
 	"cal-salary/modules/payroll"
 	"cal-salary/modules/pdf"
 	"cal-salary/modules/timekeeping"
@@ -239,6 +241,13 @@ func initServer() (*Server, error) {
 	if err := pdfMod.StartWatcher(context.Background()); err != nil {
 		logger.Warn("PDFModule: Failed to start folder watcher", "error", err)
 	}
+
+	// Initialize Meeting Module (Leader Schedule, Google Calendar & Video Room)
+	gcalSvc, _ := google.NewCalendarService(context.Background())
+	meetingMod := meeting.InitMeetingModule(&db, gcalSvc, natsClient)
+	apiV1Group := e.Group("/api/v1")
+	meetingMod.RegisterRoutes(apiV1Group, middlewareInstance.AuthMiddleware())
+
 
 	return &Server{
 		echo:       e,

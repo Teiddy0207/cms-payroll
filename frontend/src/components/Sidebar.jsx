@@ -10,6 +10,12 @@ const navSections = [
     ]
   },
   {
+    title: 'Điều hành',
+    items: [
+      { path: '/meetings', label: '📅 Lịch họp & Video Call' }
+    ]
+  },
+  {
     title: 'Lương',
     items: [
       // { path: '/payroll', label: 'Lương tham khảo' },
