@@ -18,6 +18,10 @@ import (
 	"cal-salary/modules/payroll"
 	"cal-salary/modules/pdf"
 	"cal-salary/modules/timekeeping"
+	"cal-salary/core/notification"
+	"encoding/json"
+	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"context"
 	"flag"
 	"fmt"
@@ -247,6 +251,56 @@ func initServer() (*Server, error) {
 	meetingMod := meeting.InitMeetingModule(&db, gcalSvc, natsClient)
 	apiV1Group := e.Group("/api/v1")
 	meetingMod.RegisterRoutes(apiV1Group, middlewareInstance.AuthMiddleware())
+
+	// Subscribe to meeting.notification via NATS (if client is active)
+	if natsClient != nil && natsClient.Conn != nil {
+		go func() {
+			_, err := natsClient.Conn.Subscribe("meeting.notification", func(msg *nats.Msg) {
+				var event struct {
+					Type        string      `json:"type"`
+					MeetingID   string      `json:"meeting_id"`
+					Title       string      `json:"title"`
+					AttendeeIDs []uuid.UUID `json:"attendee_ids"`
+					HostID      uuid.UUID   `json:"host_id"`
+					UserID      uuid.UUID   `json:"user_id"`
+					UserName    string      `json:"user_name"`
+					Status      string      `json:"status"`
+				}
+				if err := json.Unmarshal(msg.Data, &event); err != nil {
+					return
+				}
+
+				if event.Type == "meeting.created" {
+					for _, attID := range event.AttendeeIDs {
+						notification.GlobalHub.Publish(attID, notification.Notification{
+							ID:        uuid.New().String(),
+							Text:      fmt.Sprintf("Bạn được mời tham gia cuộc họp: %s", event.Title),
+							Time:      "Vừa xong",
+							Read:      false,
+							MeetingID: event.MeetingID,
+						})
+					}
+				} else if event.Type == "meeting.rsvp" {
+					actionText := "từ chối"
+					if event.Status == "ACCEPTED" {
+						actionText = "đồng ý"
+					}
+					notification.GlobalHub.Publish(event.HostID, notification.Notification{
+						ID:        uuid.New().String(),
+						Text:      fmt.Sprintf("%s đã %s tham gia cuộc họp: %s", event.UserName, actionText, event.Title),
+						Time:      "Vừa xong",
+						Read:      false,
+						MeetingID: event.MeetingID,
+					})
+				}
+			})
+			if err != nil {
+				logger.Error("NATS: failed to subscribe to meeting.notification", err)
+			} else {
+				logger.Info("NATS: successfully subscribed to meeting.notification")
+			}
+		}()
+	}
 
 
 	return &Server{

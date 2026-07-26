@@ -14,5 +14,7 @@ func RegisterMeetingRoutes(g *echo.Group, ctrl *controller.MeetingController, au
 
 	meetingGroup.POST("", ctrl.CreateMeeting)
 	meetingGroup.GET("", ctrl.GetMeetings)
+	meetingGroup.GET("/notifications/stream", ctrl.StreamNotifications) // static route BEFORE dynamic /:id
+	meetingGroup.GET("/:id", ctrl.GetMeetingByID)
 	meetingGroup.POST("/:id/rsvp", ctrl.UpdateRSVP)
 }

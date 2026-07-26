@@ -1,19 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: '📅 Mời tham gia cuộc họp Lãnh đạo',
-      message: 'Sếp Giám đốc vừa mời bạn tham gia "Họp Chiến lược Quỹ lương Q3"',
-      time: '5 phút trước',
-      read: false,
-      meetingId: 'meeting-1'
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    const streamUrl = `${baseUrl}/meetings/notifications/stream?token=${encodeURIComponent(token)}`;
+    const eventSource = new EventSource(streamUrl);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const notif = JSON.parse(event.data);
+        if (notif && notif.id) {
+          const newNotif = {
+            id: notif.id,
+            title: 'Lịch họp & Video Call',
+            message: notif.text,
+            time: notif.time,
+            read: notif.read,
+            meetingId: notif.meeting_id
+          };
+          setNotifications(prev => [newNotif, ...prev]);
+        }
+      } catch (err) {
+        console.error("Failed to parse SSE notification:", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.warn("Notification SSE connection closed or failed, retrying...");
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -30,7 +57,7 @@ export default function NotificationBell() {
           padding: '6px'
         }}
       >
-        🔔
+        <i className="fa-regular fa-bell" style={{ color: '#475569' }}></i>
         {unreadCount > 0 && (
           <span
             style={{
@@ -89,7 +116,10 @@ export default function NotificationBell() {
                   transition: 'background 0.2s'
                 }}
               >
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a', marginBottom: '2px' }}>{n.title}</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <i className="fa-solid fa-calendar-days" style={{ color: '#0284c7' }}></i>
+                  {n.title}
+                </div>
                 <div style={{ fontSize: '12px', color: '#475569', lineHeight: '1.3' }}>{n.message}</div>
                 <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>{n.time}</div>
               </div>

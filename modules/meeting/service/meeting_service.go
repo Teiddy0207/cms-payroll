@@ -4,6 +4,7 @@ import (
 	"cal-salary/core/errors"
 	"cal-salary/core/google"
 	"cal-salary/core/messaging"
+	"cal-salary/core/notification"
 	"cal-salary/modules/meeting/dto"
 	"cal-salary/modules/meeting/entity"
 	"cal-salary/modules/meeting/repository"
@@ -82,12 +83,25 @@ func (s *MeetingService) CreateMeeting(ctx context.Context, hostID uuid.UUID, re
 		return nil, errors.NewAppError(errors.ErrCreateFailed, "failed to create meeting record", err)
 	}
 
+	// 1. Publish local SSE notifications to attendees
+	for _, attID := range req.AttendeeIDs {
+		notification.GlobalHub.Publish(attID, notification.Notification{
+			ID:        uuid.New().String(),
+			Text:      fmt.Sprintf("Bạn được mời tham gia cuộc họp: %s", req.Title),
+			Time:      "Vừa xong",
+			Read:      false,
+			MeetingID: meetingID.String(),
+		})
+	}
+
+	// 2. Publish to NATS if available
 	if s.natsClient != nil {
-		_ = s.natsClient.PublishEvent("meeting.created", map[string]interface{}{
-			"meeting_id": meetingID.String(),
-			"title":      req.Title,
-			"host_id":    hostID.String(),
-			"start_time": req.StartTime,
+		_ = s.natsClient.PublishEvent("meeting.notification", map[string]interface{}{
+			"type":         "meeting.created",
+			"meeting_id":   meetingID.String(),
+			"title":        req.Title,
+			"attendee_ids": req.AttendeeIDs,
+			"host_id":      hostID.String(),
 		})
 	}
 
@@ -121,6 +135,45 @@ func (s *MeetingService) UpdateRSVP(ctx context.Context, meetingID, userID uuid.
 	if err != nil {
 		return errors.NewAppError(errors.ErrUpdateFailed, "failed to update rsvp status", err)
 	}
+
+	// Trigger real-time notifications
+	meeting, err := s.repo.GetMeetingByID(ctx, meetingID)
+	if err == nil && meeting != nil {
+		userName, errName := s.repo.GetUserProfileNameByUserID(ctx, userID)
+		if errName != nil || userName == "" {
+			userName = "Nhân sự"
+		}
+
+		actionText := "từ chối"
+		if status == entity.RSVPStatusAccepted {
+			actionText = "đồng ý"
+		}
+
+		text := fmt.Sprintf("%s đã %s tham gia cuộc họp: %s", userName, actionText, meeting.Title)
+
+		// 1. Publish local SSE to the host
+		notification.GlobalHub.Publish(meeting.HostID, notification.Notification{
+			ID:        uuid.New().String(),
+			Text:      text,
+			Time:      "Vừa xong",
+			Read:      false,
+			MeetingID: meetingID.String(),
+		})
+
+		// 2. Publish to NATS if available
+		if s.natsClient != nil {
+			_ = s.natsClient.PublishEvent("meeting.notification", map[string]interface{}{
+				"type":       "meeting.rsvp",
+				"meeting_id": meetingID.String(),
+				"title":      meeting.Title,
+				"host_id":    meeting.HostID.String(),
+				"user_id":    userID.String(),
+				"user_name":  userName,
+				"status":     string(status),
+			})
+		}
+	}
+
 	return nil
 }
 

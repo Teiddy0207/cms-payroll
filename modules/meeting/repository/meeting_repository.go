@@ -14,6 +14,7 @@ type MeetingRepositoryInterface interface {
 	GetMeetingsByUserID(ctx context.Context, userID uuid.UUID) ([]entity.Meeting, error)
 	UpdateRSVPStatus(ctx context.Context, meetingID, userID uuid.UUID, status entity.RSVPStatus, note string) error
 	UpdateMeeting(ctx context.Context, meeting *entity.Meeting) error
+	GetUserProfileNameByUserID(ctx context.Context, userID uuid.UUID) (string, error)
 }
 
 type MeetingRepository struct {
@@ -105,4 +106,14 @@ func (r *MeetingRepository) UpdateMeeting(ctx context.Context, meeting *entity.M
 		WHERE id = $6
 	`
 	return r.db.ExecContext(ctx, query, meeting.Title, meeting.Description, meeting.StartTime, meeting.EndTime, meeting.Status, meeting.ID)
+}
+
+func (r *MeetingRepository) GetUserProfileNameByUserID(ctx context.Context, userID uuid.UUID) (string, error) {
+	var name string
+	query := "SELECT full_name FROM user_profiles WHERE user_id = $1 LIMIT 1"
+	err := r.db.GetContext(ctx, &name, query, userID)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
 }

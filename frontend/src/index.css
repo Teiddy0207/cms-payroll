@@ -1139,6 +1139,7 @@ tbody td {
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.5px;
+  text-align: center;
 }
 
 .login-logo-text span {

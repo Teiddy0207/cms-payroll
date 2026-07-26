@@ -12,7 +12,7 @@ const navSections = [
   {
     title: 'Điều hành',
     items: [
-      { path: '/meetings', label: '📅 Lịch họp & Video Call' }
+      { path: '/meetings', label: 'Lịch họp & Video Call' }
     ]
   },
   {

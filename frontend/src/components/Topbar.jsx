@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import NotificationBell from './NotificationBell.jsx';
+import { useMemo } from 'react';
 
 const routeTitles = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Tổng quan hệ thống' },
@@ -13,11 +14,34 @@ const routeTitles = {
   '/attendance-logs': { title: 'Nhật ký chấm công', subtitle: 'Xem lịch sử quét vân tay hoặc nhận dạng khuôn mặt' },
 };
 
+function parseJWT(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 export function Topbar() {
   const location = useLocation();
   const info = routeTitles[location.pathname] || { title: 'CMS Payroll', subtitle: '' };
   const now = new Date();
   const dateStr = now.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const userInfo = useMemo(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return { displayName: 'Admin', email: '', initial: 'A' };
+    const claims = parseJWT(token);
+    if (!claims) return { displayName: 'Admin', email: '', initial: 'A' };
+    const displayName = claims.username || claims.email || 'Người dùng';
+    const initial = displayName.charAt(0).toUpperCase();
+    return { displayName, email: claims.email || '', initial };
+  }, []);
 
   return (
     <header className="topbar">
@@ -29,10 +53,10 @@ export function Topbar() {
         <NotificationBell />
         <div className="topbar-date">{dateStr}</div>
         <div className="topbar-user">
-          <div className="topbar-avatar">A</div>
+          <div className="topbar-avatar">{userInfo.initial}</div>
           <div className="topbar-user-info">
-            <span className="topbar-user-name">Admin</span>
-            <span className="topbar-user-role">Quản trị viên</span>
+            <span className="topbar-user-name">{userInfo.displayName}</span>
+            <span className="topbar-user-role">{userInfo.email || 'Tài khoản hệ thống'}</span>
           </div>
         </div>
       </div>

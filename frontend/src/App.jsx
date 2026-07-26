@@ -12,6 +12,7 @@ import DepartmentsPage from './pages/DepartmentsPage.jsx';
 import ContractsPage from './pages/ContractsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import FormulasPage from './pages/FormulasPage.jsx';
+import PDFToolsPage from './pages/PDFToolsPage.jsx';
 import FaceScanKiosk from './pages/FaceScanKiosk.jsx';
 import TimesheetsPage from './pages/TimesheetsPage.jsx';
 import AttendanceLogsPage from './pages/AttendanceLogsPage.jsx';
