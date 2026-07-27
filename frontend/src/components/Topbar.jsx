@@ -1,10 +1,12 @@
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import NotificationBell from './NotificationBell.jsx';
-import { useMemo } from 'react';
+import { Button } from 'antd';
+import { employeesAPI } from '../api/client.js';
 
 const routeTitles = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Tổng quan hệ thống' },
-  '/meetings': { title: 'Lịch họp Lãnh đạo & Video Call', subtitle: 'Quản lý cuộc họp, sync Google Schedule & phòng họp WebRTC' },
+  '/meetings': { title: 'Lịch họp & Video Call', subtitle: 'Quản lý cuộc họp & phòng họp' },
   '/employees': { title: 'Quản lý nhân viên', subtitle: 'Danh sách & thông tin nhân viên' },
   '/contracts': { title: 'Hợp đồng lao động', subtitle: 'Quản lý hợp đồng' },
   '/departments': { title: 'Phòng ban', subtitle: 'Quản lý cơ cấu tổ chức' },
@@ -27,36 +29,72 @@ function parseJWT(token) {
   }
 }
 
-export function Topbar() {
+export function Topbar({ onToggleMobileMenu }) {
   const location = useLocation();
   const info = routeTitles[location.pathname] || { title: 'CMS Payroll', subtitle: '' };
   const now = new Date();
   const dateStr = now.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const [employeeName, setEmployeeName] = useState('');
+
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    const claims = parseJWT(token);
+    if (!claims) return;
+
+    const fetchProfile = async () => {
+      try {
+        const res = await employeesAPI.list({ page_size: 500 });
+        let list = [];
+        if (res && res.data && res.data.data) {
+          if (Array.isArray(res.data.data.items)) {
+            list = res.data.data.items;
+          } else if (Array.isArray(res.data.data)) {
+            list = res.data.data;
+          }
+        }
+        const currentUserID = claims.user_id;
+        const currentUsername = claims.username;
+        const emp = list.find(e => e && (e.user_id === currentUserID || e.id === currentUserID || e.employee_code === currentUsername));
+        if (emp && emp.full_name) {
+          setEmployeeName(emp.full_name);
+        }
+      } catch (e) {
+        console.warn("Could not fetch employee profile for Topbar:", e);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const userInfo = useMemo(() => {
     const token = localStorage.getItem('auth_token');
     if (!token) return { displayName: 'Admin', email: '', initial: 'A' };
     const claims = parseJWT(token);
     if (!claims) return { displayName: 'Admin', email: '', initial: 'A' };
-    const displayName = claims.username || claims.email || 'Người dùng';
+    const displayName = employeeName || claims.full_name || claims.name || claims.username || claims.email || 'Người dùng';
     const initial = displayName.charAt(0).toUpperCase();
     return { displayName, email: claims.email || '', initial };
-  }, []);
+  }, [employeeName]);
 
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <h1 className="topbar-title">{info.title}</h1>
-        {info.subtitle && <p className="topbar-subtitle">{info.subtitle}</p>}
+        <Button
+          type="text"
+          className="mobile-menu-btn"
+          icon={<i className="fa-solid fa-bars" style={{ fontSize: '18px', color: 'var(--text-primary)' }}></i>}
+          onClick={onToggleMobileMenu}
+        />
       </div>
       <div className="topbar-right">
         <NotificationBell />
-        <div className="topbar-date">{dateStr}</div>
         <div className="topbar-user">
           <div className="topbar-avatar">{userInfo.initial}</div>
           <div className="topbar-user-info">
             <span className="topbar-user-name">{userInfo.displayName}</span>
-            <span className="topbar-user-role">{userInfo.email || 'Tài khoản hệ thống'}</span>
+            {userInfo.email ? <span className="topbar-user-role">{userInfo.email}</span> : null}
           </div>
         </div>
       </div>
@@ -74,43 +112,31 @@ export function Topbar() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 32px;
+          padding: 0 24px;
           z-index: 90;
-          gap: 20px;
+          gap: 16px;
         }
 
         .topbar-left {
           display: flex;
-          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .mobile-menu-btn {
+          display: none;
+          align-items: center;
           justify-content: center;
-        }
-
-        .topbar-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--text-primary);
-          letter-spacing: -0.2px;
-          line-height: 1.2;
-        }
-
-        .topbar-subtitle {
-          font-size: 11.5px;
-          color: var(--text-muted);
-          font-weight: 400;
-          margin-top: 1px;
+          width: 36px;
+          height: 36px;
+          padding: 0;
         }
 
         .topbar-right {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 16px;
           flex-shrink: 0;
-        }
-
-        .topbar-date {
-          font-size: 12px;
-          color: var(--text-muted);
-          font-weight: 500;
         }
 
         .topbar-user {
@@ -158,12 +184,17 @@ export function Topbar() {
           color: var(--text-muted);
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 991px) {
           .topbar {
             left: 0;
             padding: 0 16px;
           }
-          .topbar-date { display: none; }
+          .mobile-menu-btn {
+            display: inline-flex;
+          }
+        }
+
+        @media (max-width: 640px) {
           .topbar-user-info { display: none; }
         }
       `}</style>

@@ -46,3 +46,15 @@ type MeetingAttendee struct {
 	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt  time.Time  `db:"updated_at" json:"updated_at"`
 }
+
+type MeetingSummary struct {
+	ID              uuid.UUID `db:"id" json:"id"`
+	MeetingID       uuid.UUID `db:"meeting_id" json:"meeting_id"`
+	Summary         string    `db:"summary" json:"summary"`
+	KeyDecisions    string    `db:"key_decisions" json:"key_decisions"`
+	ActionItems     string    `db:"action_items" json:"action_items"`
+	EfficiencyScore string    `db:"efficiency_score" json:"efficiency_score,omitempty"`
+	Sentiment       string    `db:"sentiment" json:"sentiment,omitempty"`
+	CreatedAt       time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
+}

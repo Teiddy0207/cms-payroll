@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -249,24 +250,21 @@ func initServer() (*Server, error) {
 	// Initialize Meeting Module (Leader Schedule, Google Calendar & Video Room)
 	gcalSvc, _ := google.NewCalendarService(context.Background())
 	meetingMod := meeting.InitMeetingModule(&db, gcalSvc, natsClient)
-	apiV1Group := e.Group("/api/v1")
-	meetingMod.RegisterRoutes(apiV1Group, middlewareInstance.AuthMiddleware())
+	meetingMod.SetupRouter(e, middlewareInstance)
+
+	for _, r := range e.Routes() {
+		if strings.Contains(r.Path, "meeting") {
+			logger.Info("Registered Meeting Route", "method", r.Method, "path", r.Path)
+		}
+	}
 
 	// Subscribe to meeting.notification via NATS (if client is active)
 	if natsClient != nil && natsClient.Conn != nil {
 		go func() {
 			_, err := natsClient.Conn.Subscribe("meeting.notification", func(msg *nats.Msg) {
-				var event struct {
-					Type        string      `json:"type"`
-					MeetingID   string      `json:"meeting_id"`
-					Title       string      `json:"title"`
-					AttendeeIDs []uuid.UUID `json:"attendee_ids"`
-					HostID      uuid.UUID   `json:"host_id"`
-					UserID      uuid.UUID   `json:"user_id"`
-					UserName    string      `json:"user_name"`
-					Status      string      `json:"status"`
-				}
+				var event notification.NotificationEvent
 				if err := json.Unmarshal(msg.Data, &event); err != nil {
+					logger.Error("NATS: failed to unmarshal meeting.notification event", "error", err, "payload", string(msg.Data))
 					return
 				}
 

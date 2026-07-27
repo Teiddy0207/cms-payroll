@@ -3,6 +3,7 @@ package service
 import (
 	"cal-salary/core/errors"
 	"cal-salary/core/google"
+	"cal-salary/core/logger"
 	"cal-salary/core/messaging"
 	"cal-salary/core/notification"
 	"cal-salary/modules/meeting/dto"
@@ -19,6 +20,9 @@ type MeetingServiceInterface interface {
 	GetMeetings(ctx context.Context, userID uuid.UUID) ([]dto.MeetingResponse, *errors.AppError)
 	GetMeetingByID(ctx context.Context, meetingID uuid.UUID) (*dto.MeetingResponse, *errors.AppError)
 	UpdateRSVP(ctx context.Context, meetingID, userID uuid.UUID, req *dto.UpdateRSVPRequest) *errors.AppError
+	UpdateMeeting(ctx context.Context, hostID, meetingID uuid.UUID, req *dto.CreateMeetingRequest) (*dto.MeetingResponse, *errors.AppError)
+	SaveMeetingSummary(ctx context.Context, summary *entity.MeetingSummary) *errors.AppError
+	GetMeetingSummaryByMeetingID(ctx context.Context, meetingID uuid.UUID) (*entity.MeetingSummary, *errors.AppError)
 }
 
 type MeetingService struct {
@@ -56,15 +60,19 @@ func (s *MeetingService) CreateMeeting(ctx context.Context, hostID uuid.UUID, re
 		}
 	}
 
+	resolvedAttendeeIDs := make([]uuid.UUID, len(req.AttendeeIDs))
 	attendees := make([]entity.MeetingAttendee, len(req.AttendeeIDs))
 	for i, attID := range req.AttendeeIDs {
+		resolvedID, _ := s.repo.GetUserIDFromProfileOrUser(ctx, attID)
+		resolvedAttendeeIDs[i] = resolvedID
 		attendees[i] = entity.MeetingAttendee{
 			ID:         uuid.New(),
 			MeetingID:  meetingID,
-			UserID:     attID,
+			UserID:     resolvedID,
 			RSVPStatus: entity.RSVPStatusPending,
 		}
 	}
+	req.AttendeeIDs = resolvedAttendeeIDs
 
 	meeting := &entity.Meeting{
 		ID:            meetingID,
@@ -83,26 +91,32 @@ func (s *MeetingService) CreateMeeting(ctx context.Context, hostID uuid.UUID, re
 		return nil, errors.NewAppError(errors.ErrCreateFailed, "failed to create meeting record", err)
 	}
 
-	// 1. Publish local SSE notifications to attendees
-	for _, attID := range req.AttendeeIDs {
-		notification.GlobalHub.Publish(attID, notification.Notification{
-			ID:        uuid.New().String(),
-			Text:      fmt.Sprintf("Bạn được mời tham gia cuộc họp: %s", req.Title),
-			Time:      "Vừa xong",
-			Read:      false,
-			MeetingID: meetingID.String(),
-		})
+	// Publish real-time notification via NATS if available
+	event := notification.NotificationEvent{
+		Type:        "meeting.created",
+		MeetingID:   meetingID.String(),
+		Title:       req.Title,
+		AttendeeIDs: req.AttendeeIDs,
+		HostID:      hostID,
 	}
 
-	// 2. Publish to NATS if available
 	if s.natsClient != nil {
-		_ = s.natsClient.PublishEvent("meeting.notification", map[string]interface{}{
-			"type":         "meeting.created",
-			"meeting_id":   meetingID.String(),
-			"title":        req.Title,
-			"attendee_ids": req.AttendeeIDs,
-			"host_id":      hostID.String(),
-		})
+		if err := s.natsClient.PublishEvent("meeting.notification", event); err != nil {
+			logger.Warn("NATS: failed to publish meeting.created notification", "error", err)
+		}
+	}
+
+	// Always publish to local SSE GlobalHub for instant NotificationBell updates using resolved UserID
+	for _, att := range attendees {
+		if att.UserID != uuid.Nil && att.UserID != hostID {
+			notification.GlobalHub.Publish(att.UserID, notification.Notification{
+				ID:        uuid.New().String(),
+				Text:      fmt.Sprintf("Bạn được mời tham gia cuộc họp: %s", req.Title),
+				Time:      "Vừa xong",
+				Read:      false,
+				MeetingID: meetingID.String(),
+			})
+		}
 	}
 
 	return toMeetingResponse(meeting), nil
@@ -151,25 +165,32 @@ func (s *MeetingService) UpdateRSVP(ctx context.Context, meetingID, userID uuid.
 
 		text := fmt.Sprintf("%s đã %s tham gia cuộc họp: %s", userName, actionText, meeting.Title)
 
-		// 1. Publish local SSE to the host
-		notification.GlobalHub.Publish(meeting.HostID, notification.Notification{
-			ID:        uuid.New().String(),
-			Text:      text,
-			Time:      "Vừa xong",
-			Read:      false,
+		event := notification.NotificationEvent{
+			Type:      "meeting.rsvp",
 			MeetingID: meetingID.String(),
-		})
+			Title:     meeting.Title,
+			HostID:    meeting.HostID,
+			UserID:    userID,
+			UserName:  userName,
+			Status:    string(status),
+		}
 
-		// 2. Publish to NATS if available
+		natsPublished := false
 		if s.natsClient != nil {
-			_ = s.natsClient.PublishEvent("meeting.notification", map[string]interface{}{
-				"type":       "meeting.rsvp",
-				"meeting_id": meetingID.String(),
-				"title":      meeting.Title,
-				"host_id":    meeting.HostID.String(),
-				"user_id":    userID.String(),
-				"user_name":  userName,
-				"status":     string(status),
+			if err := s.natsClient.PublishEvent("meeting.notification", event); err == nil {
+				natsPublished = true
+			} else {
+				logger.Warn("NATS: failed to publish meeting.rsvp notification, falling back to local hub", "error", err)
+			}
+		}
+
+		if !natsPublished {
+			notification.GlobalHub.Publish(meeting.HostID, notification.Notification{
+				ID:        uuid.New().String(),
+				Text:      text,
+				Time:      "Vừa xong",
+				Read:      false,
+				MeetingID: meetingID.String(),
 			})
 		}
 	}
@@ -200,4 +221,64 @@ func toMeetingResponse(m *entity.Meeting) *dto.MeetingResponse {
 		CreatedAt:     m.CreatedAt,
 		Attendees:     attendeesResp,
 	}
+}
+
+func (s *MeetingService) UpdateMeeting(ctx context.Context, hostID, meetingID uuid.UUID, req *dto.CreateMeetingRequest) (*dto.MeetingResponse, *errors.AppError) {
+	existing, err := s.repo.GetMeetingByID(ctx, meetingID)
+	if err != nil {
+		return nil, errors.NewAppError(errors.ErrNotFound, "meeting not found", err)
+	}
+
+	if existing.HostID != hostID {
+		return nil, errors.NewAppError(errors.ErrForbidden, "only host can update meeting", nil)
+	}
+
+	attendees := make([]entity.MeetingAttendee, len(req.AttendeeIDs))
+	for i, attID := range req.AttendeeIDs {
+		targetID, _ := s.repo.GetUserIDFromProfileOrUser(ctx, attID)
+		attendees[i] = entity.MeetingAttendee{
+			UserID:     targetID,
+			RSVPStatus: entity.RSVPStatusPending,
+		}
+	}
+
+	existing.Title = req.Title
+	existing.Description = req.Description
+	existing.StartTime = req.StartTime
+	existing.EndTime = req.EndTime
+	existing.Attendees = attendees
+
+	if err := s.repo.UpdateMeeting(ctx, existing); err != nil {
+		return nil, errors.NewAppError(errors.ErrUpdateFailed, "failed to update meeting record", err)
+	}
+
+	for _, att := range attendees {
+		if att.UserID != uuid.Nil && att.UserID != hostID {
+			notification.GlobalHub.Publish(att.UserID, notification.Notification{
+				ID:        uuid.New().String(),
+				Text:      fmt.Sprintf("Cuộc họp '%s' đã được cập nhật!", req.Title),
+				Time:      "Vừa xong",
+				Read:      false,
+				MeetingID: meetingID.String(),
+			})
+		}
+	}
+
+	return toMeetingResponse(existing), nil
+}
+
+func (s *MeetingService) SaveMeetingSummary(ctx context.Context, summary *entity.MeetingSummary) *errors.AppError {
+	err := s.repo.SaveMeetingSummary(ctx, summary)
+	if err != nil {
+		return errors.NewAppError(errors.ErrInternalServer, "Failed to save meeting summary", err)
+	}
+	return nil
+}
+
+func (s *MeetingService) GetMeetingSummaryByMeetingID(ctx context.Context, meetingID uuid.UUID) (*entity.MeetingSummary, *errors.AppError) {
+	summary, err := s.repo.GetMeetingSummaryByMeetingID(ctx, meetingID)
+	if err != nil {
+		return nil, errors.NewAppError(errors.ErrNotFound, "Meeting summary not found", err)
+	}
+	return summary, nil
 }

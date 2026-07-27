@@ -7,11 +7,13 @@ import (
 )
 
 type Notification struct {
-	ID        string `json:"id"`
-	Text      string `json:"text"`
-	Time      string `json:"time"`
-	Read      bool   `json:"read"`
-	MeetingID string `json:"meeting_id,omitempty"`
+	ID        string      `json:"id"`
+	Text      string      `json:"text"`
+	Time      string      `json:"time"`
+	Read      bool        `json:"read"`
+	MeetingID string      `json:"meeting_id,omitempty"`
+	Type      string      `json:"type,omitempty"`
+	Payload   interface{} `json:"payload,omitempty"`
 }
 
 type Hub struct {

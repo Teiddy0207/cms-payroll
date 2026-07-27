@@ -12,9 +12,16 @@ func RegisterMeetingRoutes(g *echo.Group, ctrl *controller.MeetingController, au
 		meetingGroup.Use(authMiddleware)
 	}
 
-	meetingGroup.POST("", ctrl.CreateMeeting)
+	// Static routes first before wildcard :id
+	meetingGroup.GET("/notifications/stream", ctrl.StreamNotifications)
+	meetingGroup.POST("/signal", ctrl.SendWebRTCSignal)
 	meetingGroup.GET("", ctrl.GetMeetings)
-	meetingGroup.GET("/notifications/stream", ctrl.StreamNotifications) // static route BEFORE dynamic /:id
-	meetingGroup.GET("/:id", ctrl.GetMeetingByID)
+	meetingGroup.GET("/", ctrl.GetMeetings)
+	meetingGroup.POST("", ctrl.CreateMeeting)
+	meetingGroup.POST("/", ctrl.CreateMeeting)
 	meetingGroup.POST("/:id/rsvp", ctrl.UpdateRSVP)
+	meetingGroup.PUT("/:id", ctrl.UpdateMeeting)
+	meetingGroup.POST("/:id/summary", ctrl.SaveSummary)
+	meetingGroup.GET("/:id/summary", ctrl.GetSummary)
+	meetingGroup.GET("/:id", ctrl.GetMeetingByID)
 }

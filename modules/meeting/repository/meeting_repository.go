@@ -15,6 +15,9 @@ type MeetingRepositoryInterface interface {
 	UpdateRSVPStatus(ctx context.Context, meetingID, userID uuid.UUID, status entity.RSVPStatus, note string) error
 	UpdateMeeting(ctx context.Context, meeting *entity.Meeting) error
 	GetUserProfileNameByUserID(ctx context.Context, userID uuid.UUID) (string, error)
+	GetUserIDFromProfileOrUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+	SaveMeetingSummary(ctx context.Context, summary *entity.MeetingSummary) error
+	GetMeetingSummaryByMeetingID(ctx context.Context, meetingID uuid.UUID) (*entity.MeetingSummary, error)
 }
 
 type MeetingRepository struct {
@@ -23,6 +26,21 @@ type MeetingRepository struct {
 
 func NewMeetingRepository(db database.IDatabase) *MeetingRepository {
 	return &MeetingRepository{db: db}
+}
+
+func (r *MeetingRepository) GetUserIDFromProfileOrUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	var targetUserID uuid.UUID
+	query := `
+		SELECT user_id FROM user_profiles WHERE (id = $1 OR user_id = $1) AND user_id IS NOT NULL
+		UNION ALL
+		SELECT id FROM users WHERE id = $1
+		LIMIT 1
+	`
+	err := r.db.GetContext(ctx, &targetUserID, query, id)
+	if err != nil || targetUserID == uuid.Nil {
+		return id, nil
+	}
+	return targetUserID, nil
 }
 
 func (r *MeetingRepository) CreateMeeting(ctx context.Context, meeting *entity.Meeting) error {
@@ -110,10 +128,39 @@ func (r *MeetingRepository) UpdateMeeting(ctx context.Context, meeting *entity.M
 
 func (r *MeetingRepository) GetUserProfileNameByUserID(ctx context.Context, userID uuid.UUID) (string, error) {
 	var name string
-	query := "SELECT full_name FROM user_profiles WHERE user_id = $1 LIMIT 1"
+	query := "SELECT full_name FROM user_profiles WHERE user_id = $1 OR id = $1 LIMIT 1"
 	err := r.db.GetContext(ctx, &name, query, userID)
 	if err != nil {
 		return "", err
 	}
 	return name, nil
+}
+
+func (r *MeetingRepository) SaveMeetingSummary(ctx context.Context, summary *entity.MeetingSummary) error {
+	query := `
+		INSERT INTO meeting_summaries (id, meeting_id, summary, key_decisions, action_items, efficiency_score, sentiment, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+		ON CONFLICT (meeting_id) DO UPDATE 
+		SET summary = EXCLUDED.summary, key_decisions = EXCLUDED.key_decisions, action_items = EXCLUDED.action_items,
+		    efficiency_score = EXCLUDED.efficiency_score, sentiment = EXCLUDED.sentiment, updated_at = NOW()
+	`
+	if summary.ID == uuid.Nil {
+		summary.ID = uuid.New()
+	}
+	return r.db.ExecContext(ctx, query, summary.ID, summary.MeetingID, summary.Summary, summary.KeyDecisions, summary.ActionItems, summary.EfficiencyScore, summary.Sentiment)
+}
+
+func (r *MeetingRepository) GetMeetingSummaryByMeetingID(ctx context.Context, meetingID uuid.UUID) (*entity.MeetingSummary, error) {
+	var summary entity.MeetingSummary
+	query := `
+		SELECT id, meeting_id, summary, key_decisions, action_items, efficiency_score, sentiment, created_at, updated_at
+		FROM meeting_summaries
+		WHERE meeting_id = $1
+		LIMIT 1
+	`
+	err := r.db.GetContext(ctx, &summary, query, meetingID)
+	if err != nil {
+		return nil, err
+	}
+	return &summary, nil
 }

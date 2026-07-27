@@ -27,6 +27,7 @@ export default function NotificationBell() {
             meetingId: notif.meeting_id
           };
           setNotifications(prev => [newNotif, ...prev]);
+          window.dispatchEvent(new CustomEvent('meeting_updated'));
         }
       } catch (err) {
         console.error("Failed to parse SSE notification:", err);
@@ -48,32 +49,35 @@ export default function NotificationBell() {
     <div style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen(!open)}
+        title="Thông báo cuộc họp real-time"
         style={{
-          background: 'transparent',
-          border: 'none',
-          fontSize: '20px',
+          background: 'rgba(241, 245, 249, 0.9)',
+          border: '1px solid #cbd5e1',
+          borderRadius: '20px',
+          padding: '6px 14px',
+          fontSize: '13px',
           cursor: 'pointer',
           position: 'relative',
-          padding: '6px'
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          color: '#0f172a',
+          fontWeight: '600',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
         }}
       >
-        <i className="fa-regular fa-bell" style={{ color: '#475569' }}></i>
+        <i className="fa-solid fa-bell" style={{ color: '#0284c7', fontSize: '15px' }}></i>
+        <span>Thông báo</span>
         {unreadCount > 0 && (
           <span
             style={{
-              position: 'absolute',
-              top: '2px',
-              right: '2px',
               background: '#ef4444',
               color: '#fff',
-              borderRadius: '50%',
-              width: '18px',
-              height: '18px',
-              fontSize: '10px',
+              borderRadius: '10px',
+              padding: '2px 8px',
+              fontSize: '10.5px',
               fontWeight: '700',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+              marginLeft: '2px'
             }}
           >
             {unreadCount}
@@ -88,6 +92,7 @@ export default function NotificationBell() {
             right: 0,
             top: '40px',
             width: '320px',
+            maxWidth: 'calc(100vw - 32px)',
             background: '#ffffff',
             borderRadius: '12px',
             boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
@@ -106,7 +111,11 @@ export default function NotificationBell() {
                 onClick={() => {
                   setNotifications(notifications.map(item => item.id === n.id ? { ...item, read: true } : item));
                   setOpen(false);
-                  navigate('/meetings');
+                  if (n.meetingId) {
+                    navigate(`/meetings/room/${n.meetingId}`);
+                  } else {
+                    navigate('/meetings');
+                  }
                 }}
                 style={{
                   padding: '12px 16px',

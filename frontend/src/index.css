@@ -1172,22 +1172,189 @@ tbody td {
   color: var(--text-muted);
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
-  :root {
-    --sidebar-width: 220px;
+/* Comprehensive Responsive Media Queries */
+@media (max-width: 1200px) {
+  .grid-4 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
   }
-  .grid-4 { grid-template-columns: 1fr 1fr; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 991px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+
   .main-content {
     margin-left: 0;
   }
+
   .page-content {
-    padding: 20px 16px;
+    padding: 20px 20px;
     padding-top: calc(var(--topbar-height) + 20px);
   }
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+
+  .grid-4 {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .grid-3 {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .form-row-3 {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
 }
+
+@media (max-width: 768px) {
+  .page-content {
+    padding: 16px 14px;
+    padding-top: calc(var(--topbar-height) + 16px);
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .page-header > div:last-child {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .grid-4, .grid-3, .grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .form-row, .form-row-3, .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .table-toolbar > div {
+    width: 100%;
+  }
+
+  .search-bar {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .setting-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .setting-edit {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal {
+    max-height: 94vh;
+    border-radius: var(--radius-lg);
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-header, .modal-footer {
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 576px) {
+  .page-content {
+    padding: 12px 10px;
+    padding-top: calc(var(--topbar-height) + 12px);
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .card, .stat-card {
+    padding: 16px;
+  }
+
+  .stat-info h3 {
+    font-size: 20px;
+  }
+
+  .salary-value {
+    font-size: 20px;
+  }
+
+  .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .toast-container {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .toast {
+    min-width: auto;
+    max-width: 100%;
+  }
+}
+
+/* Ant Design Component Responsive Overrides */
+.ant-picker-calendar {
+  overflow-x: auto;
+  min-width: 320px;
+}
+
+.ant-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ant-card {
+  max-width: 100%;
+}
+
+.ant-modal {
+  max-width: calc(100vw - 24px);
+  margin: 12px auto !important;
+}
+
+.ant-modal-content {
+  padding: 16px !important;
+}
+
+@media (max-width: 768px) {
+  .ant-picker-calendar-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .ant-descriptions-view {
+    overflow-x: auto;
+  }
+}
+
+

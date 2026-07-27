@@ -42,3 +42,13 @@ type AttendeeResponse struct {
 	RSVPStatus string    `json:"rsvp_status"`
 	Note       string    `json:"note,omitempty"`
 }
+
+type WebRTCSignalRequest struct {
+	Type       string      `json:"type"`
+	MeetingID  string      `json:"meeting_id"`
+	FromUserID string      `json:"from_user_id"`
+	ToUserID   string      `json:"to_user_id,omitempty"`
+	Offer      interface{} `json:"offer,omitempty"`
+	Answer     interface{} `json:"answer,omitempty"`
+	Candidate  interface{} `json:"candidate,omitempty"`
+}

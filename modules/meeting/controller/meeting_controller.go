@@ -5,6 +5,7 @@ import (
 	"cal-salary/core/notification"
 	"cal-salary/core/utils"
 	"cal-salary/modules/meeting/dto"
+	"cal-salary/modules/meeting/entity"
 	"cal-salary/modules/meeting/service"
 	"encoding/json"
 	"fmt"
@@ -51,6 +52,30 @@ func (c *MeetingController) CreateMeeting(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusCreated, resp)
+}
+
+func (c *MeetingController) UpdateMeeting(ctx echo.Context) error {
+	hostID := getUserID(ctx)
+	if hostID == uuid.Nil {
+		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+	}
+
+	meetingID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid meeting id"})
+	}
+
+	var req dto.CreateMeetingRequest
+	if err := ctx.Bind(&req); err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+	}
+
+	resp, appErr := c.svc.UpdateMeeting(ctx.Request().Context(), hostID, meetingID, &req)
+	if appErr != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": appErr.Message})
+	}
+
+	return ctx.JSON(http.StatusOK, resp)
 }
 
 func (c *MeetingController) GetMeetings(ctx echo.Context) error {
@@ -119,6 +144,16 @@ func (c *MeetingController) StreamNotifications(ctx echo.Context) error {
 
 	userID := getUserID(ctx)
 	if userID == uuid.Nil {
+		tokenStr := ctx.QueryParam("token")
+		if tokenStr != "" {
+			claims, err := utils.ValidateAndParseToken(tokenStr)
+			if err == nil && claims != nil {
+				userID = claims.UserID
+			}
+		}
+	}
+
+	if userID == uuid.Nil {
 		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 
@@ -145,4 +180,96 @@ func (c *MeetingController) StreamNotifications(ctx echo.Context) error {
 			return nil
 		}
 	}
+}
+
+func (c *MeetingController) SendWebRTCSignal(ctx echo.Context) error {
+	userID := getUserID(ctx)
+	if userID == uuid.Nil {
+		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+	}
+
+	var req dto.WebRTCSignalRequest
+	if err := ctx.Bind(&req); err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid signal payload"})
+	}
+
+	req.FromUserID = userID.String()
+
+	if req.ToUserID != "" {
+		targetUUID, err := uuid.Parse(req.ToUserID)
+		if err == nil && targetUUID != uuid.Nil {
+			notification.GlobalHub.Publish(targetUUID, notification.Notification{
+				ID:        uuid.New().String(),
+				Text:      "WebRTC Signaling Message",
+				MeetingID: req.MeetingID,
+				Type:      "webrtc_signal",
+				Payload:   req,
+			})
+		}
+	} else if req.MeetingID != "" {
+		meetingUUID, err := uuid.Parse(req.MeetingID)
+		if err == nil {
+			meeting, appErr := c.svc.GetMeetingByID(ctx.Request().Context(), meetingUUID)
+			if appErr == nil && meeting != nil {
+				if meeting.HostID != userID {
+					notification.GlobalHub.Publish(meeting.HostID, notification.Notification{
+						ID:        uuid.New().String(),
+						Text:      "WebRTC Signaling Message",
+						MeetingID: req.MeetingID,
+						Type:      "webrtc_signal",
+						Payload:   req,
+					})
+				}
+				for _, att := range meeting.Attendees {
+					if att.UserID != userID {
+						notification.GlobalHub.Publish(att.UserID, notification.Notification{
+							ID:        uuid.New().String(),
+							Text:      "WebRTC Signaling Message",
+							MeetingID: req.MeetingID,
+							Type:      "webrtc_signal",
+							Payload:   req,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (c *MeetingController) SaveSummary(ctx echo.Context) error {
+	idStr := ctx.Param("id")
+	meetingID, err := uuid.Parse(idStr)
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid meeting id"})
+	}
+
+	var req entity.MeetingSummary
+	if err := ctx.Bind(&req); err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid summary payload"})
+	}
+
+	req.MeetingID = meetingID
+	appErr := c.svc.SaveMeetingSummary(ctx.Request().Context(), &req)
+	if appErr != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": appErr.Message})
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]interface{}{"status": "success", "data": req})
+}
+
+func (c *MeetingController) GetSummary(ctx echo.Context) error {
+	idStr := ctx.Param("id")
+	meetingID, err := uuid.Parse(idStr)
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid meeting id"})
+	}
+
+	summary, appErr := c.svc.GetMeetingSummaryByMeetingID(ctx.Request().Context(), meetingID)
+	if appErr != nil {
+		return ctx.JSON(http.StatusNotFound, map[string]string{"error": appErr.Message})
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]interface{}{"status": "success", "data": summary})
 }
