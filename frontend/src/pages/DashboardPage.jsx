@@ -46,6 +46,7 @@ export function DashboardPage() {
   const statCards = [
     { label: 'Tổng nhân viên', value: stats.employees, color: '#4f8ef7', path: '/employees' },
     { label: 'Hợp đồng', value: stats.contracts, color: '#22c55e', path: '/contracts' },
+    { label: 'Lịch họp & Video Call', value: 'Trực tuyến', color: '#10b981', path: '/meetings' },
     { label: 'Vị trí công việc', value: stats.positions, color: '#f59e0b', path: '/job-positions' },
     { label: 'Phòng ban', value: stats.departments, color: '#06b6d4', path: '/departments' },
   ];

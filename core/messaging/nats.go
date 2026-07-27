@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -48,3 +49,16 @@ func (c *NatsClient) EnsureStream(ctx context.Context, cfg jetstream.StreamConfi
 func (c *NatsClient) EnsureConsumer(ctx context.Context, streamName string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error) {
 	return c.JS.CreateOrUpdateConsumer(ctx, streamName, cfg)
 }
+
+// PublishEvent publishes a JSON event payload to NATS subject.
+func (c *NatsClient) PublishEvent(subject string, data interface{}) error {
+	if c == nil || c.Conn == nil {
+		return nil
+	}
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return c.Conn.Publish(subject, bytes)
+}
+

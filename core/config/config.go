@@ -168,8 +168,12 @@ func Init(env Environment) error {
 			}
 		}
 
-		// 2. Khởi tạo Viper – chỉ lấy từ env
+		// 2. Khởi tạo Viper
 		v := viper.New()
+		v.SetConfigFile(".env")
+		v.SetConfigType("env")
+		_ = v.ReadInConfig()
+
 		v.SetDefault("environment", string(env))
 		v.SetDefault("server.port", 7070)
 		v.SetDefault("server.host", "0.0.0.0")
@@ -179,7 +183,6 @@ func Init(env Environment) error {
 		v.SetDefault("nats.durable_consumer", "attendance-checkin-consumer")
 
 		v.AutomaticEnv()
-		v.SetEnvPrefix("APP")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 		// Bind all needed envs
