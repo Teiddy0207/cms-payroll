@@ -233,4 +233,24 @@ export const pdfAPI = {
     }),
 };
 
+// ===================== MEETINGS =====================
+export const meetingsAPI = {
+  list: () =>
+    client.get('/meetings'),
+  get: (id) =>
+    client.get(`/meetings/${id}`),
+  create: (data) =>
+    client.post('/meetings', data),
+  update: (id, data) =>
+    client.put(`/meetings/${id}`, data),
+  rsvp: (id, status, note = '') =>
+    client.post(`/meetings/${id}/rsvp`, { status: status, note: note }),
+  signal: (data) =>
+    client.post('/meetings/signal', data),
+  getSummary: (id) =>
+    client.get(`/meetings/${id}/summary`),
+  saveSummary: (id, data) =>
+    client.post(`/meetings/${id}/summary`, data),
+};
+
 export default client;

@@ -428,7 +428,12 @@ func (r *AuthRepository) UpdateUser(ctx context.Context, user *entity.User) erro
 
 func (r *AuthRepository) GetUserByIdentifier(ctx context.Context, identifier string) (*entity.User, error) {
 	var user entity.User
-	query := `SELECT * FROM users WHERE email = $1 OR id::text = $1 OR username = $1`
+	query := `
+		SELECT u.* FROM users u 
+		LEFT JOIN user_profiles up ON u.id = up.user_id 
+		WHERE u.email = $1 OR u.id::text = $1 OR u.username = $1 OR up.phone = $1
+		LIMIT 1
+	`
 	err := r.DB.GetContext(ctx, &user, query, identifier)
 	if err != nil {
 		if err == sql.ErrNoRows {

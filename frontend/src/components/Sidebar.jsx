@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { Drawer } from 'antd';
 import { authAPI } from '../api/client.js';
 import { useToast } from '../hooks/useToast.js';
 
@@ -6,57 +7,62 @@ const navSections = [
   {
     title: 'Thống kê',
     items: [
-      { path: '/dashboard', label: 'Dashboard' }
+      { path: '/dashboard', label: 'Dashboard', icon: 'fa-solid fa-chart-line' }
+    ]
+  },
+  {
+    title: 'Điều hành',
+    items: [
+      { path: '/meetings', label: 'Lịch họp & Video Call', icon: 'fa-solid fa-video' }
     ]
   },
   {
     title: 'Lương',
     items: [
-      // { path: '/payroll', label: 'Lương tham khảo' },
-      { path: '/payroll-run', label: 'Tính lương tháng' },
-      { path: '/payroll-formulas', label: 'Công thức lương' }
+      { path: '/payroll-run', label: 'Tính lương tháng', icon: 'fa-solid fa-calculator' },
+      { path: '/payroll-formulas', label: 'Công thức lương', icon: 'fa-solid fa-square-root-variable' }
     ]
   },
   {
     title: 'Chấm công',
     items: [
-      { path: '/face-scan', label: 'Chấm công khuôn mặt' },
-      { path: '/timesheets', label: 'Bảng chấm công' },
-      { path: '/attendance-logs', label: 'Nhật ký chấm công' },
-      { path: '/explanation-requests', label: 'Giải trình bù công' },
-      { path: '/ot-requests', label: 'Đăng ký làm thêm (OT)' }
+      { path: '/face-scan', label: 'Chấm công khuôn mặt', icon: 'fa-solid fa-camera' },
+      { path: '/timesheets', label: 'Bảng chấm công', icon: 'fa-solid fa-calendar-days' },
+      { path: '/attendance-logs', label: 'Nhật ký chấm công', icon: 'fa-solid fa-list-check' },
+      { path: '/explanation-requests', label: 'Giải trình bù công', icon: 'fa-solid fa-file-pen' },
+      { path: '/ot-requests', label: 'Đăng ký làm thêm (OT)', icon: 'fa-solid fa-clock' }
     ]
   },
   {
     title: 'Quản lý nhân sự',
     items: [
-      { path: '/departments', label: 'Phòng ban' },
-      { path: '/employees', label: 'Nhân viên' }
+      { path: '/departments', label: 'Phòng ban', icon: 'fa-solid fa-building' },
+      { path: '/employees', label: 'Nhân viên', icon: 'fa-solid fa-users' }
     ]
   },
   {
     title: 'Đánh giá',
     items: [
-      { path: '/competencies', label: 'Năng lực' },
-      { path: '/job-positions', label: 'Vị trí công việc' }
+      { path: '/competencies', label: 'Năng lực', icon: 'fa-solid fa-award' },
+      { path: '/job-positions', label: 'Vị trí công việc', icon: 'fa-solid fa-briefcase' }
     ]
   },
   {
     title: 'Hệ thống',
     items: [
-      { path: '/contracts', label: 'Hợp đồng' },
-      { path: '/settings', label: 'Cài đặt' }
+      { path: '/contracts', label: 'Hợp đồng', icon: 'fa-solid fa-file-contract' },
+      { path: '/settings', label: 'Cài đặt', icon: 'fa-solid fa-gear' }
     ]
   },
   {
     title: 'Hỗ trợ',
     items: [
-      { path: '/pdf-tools', label: 'Công cụ PDF'}
+      { path: '/pdf-tools', label: 'Công cụ PDF', icon: 'fa-solid fa-file-pdf' }
     ]
   }
 ];
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen, onClose }) {
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -68,11 +74,16 @@ export function Sidebar() {
     }
     localStorage.removeItem('auth_token');
     toast.success('Đã đăng xuất', 'Hẹn gặp lại!');
+    if (onClose) onClose();
     navigate('/login');
   };
 
-  return (
-    <aside className="sidebar">
+  const handleNavClick = () => {
+    if (onClose) onClose();
+  };
+
+  const sidebarContent = (
+    <div className="sidebar-inner">
       <div className="sidebar-logo">
         <div className="sidebar-logo-text">
           <span>CMS</span> Payroll
@@ -88,8 +99,10 @@ export function Sidebar() {
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  onClick={handleNavClick}
                   className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
                 >
+                  {item.icon && <i className={item.icon} style={{ width: '20px', fontSize: '14px', marginRight: '6px' }}></i>}
                   <span className="nav-label">{item.label}</span>
                 </NavLink>
               ))}
@@ -103,6 +116,30 @@ export function Sidebar() {
           <span>Đăng xuất</span>
         </button>
       </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside className="sidebar desktop-sidebar">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer Sidebar */}
+      <Drawer
+        open={mobileOpen}
+        onClose={onClose}
+        placement="left"
+        width={260}
+        closable={false}
+        styles={{ body: { padding: 0, background: '#082920' } }}
+        className="mobile-sidebar-drawer"
+      >
+        <div className="sidebar mobile-sidebar-content">
+          {sidebarContent}
+        </div>
+      </Drawer>
 
       <style>{`
         .sidebar {
@@ -117,6 +154,25 @@ export function Sidebar() {
           flex-direction: column;
           z-index: 100;
           overflow: hidden;
+        }
+
+        .mobile-sidebar-content {
+          position: relative;
+          width: 100%;
+          height: 100%;
+        }
+
+        .sidebar-inner {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          width: 100%;
+        }
+
+        @media (max-width: 991px) {
+          .desktop-sidebar {
+            display: none !important;
+          }
         }
 
         .sidebar-logo {
@@ -246,8 +302,9 @@ export function Sidebar() {
           color: #ef4444;
         }
       `}</style>
-    </aside>
+    </>
   );
 }
 
 export default Sidebar;
+

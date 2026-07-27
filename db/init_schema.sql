@@ -414,3 +414,31 @@ ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS search_keyword VARCHAR(100
 
 DELETE FROM system_settings WHERE key = 'company_point_rate';
 
+-- 30. Meetings table (Leader Meetings & Google Calendar Sync)
+CREATE TABLE IF NOT EXISTS meetings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    host_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    google_event_id VARCHAR(255),
+    room_url VARCHAR(500),
+    status VARCHAR(50) NOT NULL DEFAULT 'SCHEDULED', -- SCHEDULED, CANCELLED, COMPLETED
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- 31. Meeting Attendees (RSVP Status)
+CREATE TABLE IF NOT EXISTS meeting_attendees (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    meeting_id UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rsvp_status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- PENDING, ACCEPTED, DECLINED
+    note TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(meeting_id, user_id)
+);
+
+
