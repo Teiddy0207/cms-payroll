@@ -22,17 +22,23 @@ client.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor - handle 401
+// Response interceptor - handle 401 (token expired/invalid) and 403 (permission denied)
 client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
-      window.location.href = '/login';
+      // 401 = token invalid or expired → logout
+      const isAlreadyOnLogin = window.location.hash.includes('/login');
+      if (!isAlreadyOnLogin) {
+        localStorage.removeItem('auth_token');
+        window.location.href = '/#/login';
+      }
     }
+    // 403 = permission denied → do NOT logout, just reject the promise
     return Promise.reject(error);
   }
 );
+
 
 // ===================== AUTH =====================
 export const authAPI = {
@@ -251,6 +257,53 @@ export const meetingsAPI = {
     client.get(`/meetings/${id}/summary`),
   saveSummary: (id, data) =>
     client.post(`/meetings/${id}/summary`, data),
+};
+
+// ===================== ROLES & PERMISSIONS =====================
+export const authAdminAPI = {
+  // Roles CRUD
+  listRoles: (params = {}) =>
+    client.get('/private/auth/roles', { params: { page_number: 1, page_size: 100, ...params } }),
+  createRole: (data) =>
+    client.post('/private/auth/roles', data),
+  updateRole: (id, data) =>
+    client.put(`/private/auth/roles/${id}`, data),
+  deleteRole: (id) =>
+    client.delete(`/private/auth/roles/${id}`),
+
+  // Permissions CRUD
+  listPermissions: (params = {}) =>
+    client.get('/private/auth/permissions', { params: { page_number: 1, page_size: 200, ...params } }),
+  createPermission: (data) =>
+    client.post('/private/auth/permissions', data),
+  updatePermission: (id, data) =>
+    client.put(`/private/auth/permissions/${id}`, data),
+  deletePermission: (id) =>
+    client.delete(`/private/auth/permissions/${id}`),
+
+  // Role - Permission Assignment
+  assignPermissionToRole: (data) =>
+    client.post('/private/auth/roles/assign-permission', data),
+
+  // User - Role - Permission Assignment
+  assignRoleToUser: (data) =>
+    client.post('/private/auth/users/assign-role', data),
+  assignPermissionToUser: (data) =>
+    client.post('/private/auth/users/assign-permission', data),
+  getUserPermissions: (userId) =>
+    client.get(`/private/auth/users/${userId}/permissions`),
+
+  // User CRUD
+  listUsers: (params = {}) =>
+    client.get('/private/auth/users', { params: { page_number: 1, page_size: 100, ...params } }),
+  createUser: (data) =>
+    client.post('/private/auth/users', data),
+  updateUser: (id, data) =>
+    client.put(`/private/auth/users/${id}`, data),
+  deleteUser: (id) =>
+    client.delete(`/private/auth/users/${id}`),
+  getMePermissions: () =>
+    client.get('/private/auth/me/permissions'),
 };
 
 export default client;

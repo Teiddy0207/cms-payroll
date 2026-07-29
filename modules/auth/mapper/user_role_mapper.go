@@ -11,11 +11,11 @@ func ToUserRoleEntity(req *dto.UserRoleRequest) *entity.UserRole {
 	}
 
 	return &entity.UserRole{
-		UserID: req.UserID,
-		// RoleID:     req.RoleID,
-		// AssignedBy: req.AssignedBy,
-		// AssignedAt: req.AssignedAt,
-		// ExpiresAt:  req.ExpiresAt,
-		// IsActive:   req.IsActive,
+		UserID:      req.UserID,
+		RoleID:      req.ID,
+		Code:        req.Code,
+		Name:        req.Name,
+		Description: req.Description,
+		IsActive:    true,
 	}
 }

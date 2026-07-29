@@ -173,16 +173,16 @@ func initServer() (*Server, error) {
 		logger.Warn("Failed to seed job positions", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
-	if err := seed.SeedPayrollData(seedCtx, db); err != nil {
-		logger.Warn("Failed to seed payroll data", "error", err)
-		// Không dừng server nếu seeding thất bại, chỉ log warning
-	}
 	if err := seed.SeedPermissions(seedCtx, db); err != nil {
 		logger.Warn("Failed to seed permissions", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
 	if err := seed.SeedRolesAndAdminUserRole(seedCtx, db); err != nil {
 		logger.Warn("Failed to seed roles and admin user role", "error", err)
+		// Không dừng server nếu seeding thất bại, chỉ log warning
+	}
+	if err := seed.SeedAdminRolePermissions(seedCtx, db); err != nil {
+		logger.Warn("Failed to seed admin role permissions", "error", err)
 		// Không dừng server nếu seeding thất bại, chỉ log warning
 	}
 	if err := seed.SeedEmployeeUsers(seedCtx, db); err != nil {

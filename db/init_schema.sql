@@ -392,7 +392,7 @@ VALUES ('00000000-0000-0000-0000-000000000000', 'ADMIN_POS', 'Administrator', 'S
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO users (id, email, username, password, position_id, is_active)
-VALUES ('00000000-0000-0000-0000-000000000000', 'admin@example.com', 'admin', '$2a$10$7/Zf9Y.yD8l.y6K4L.9tLeqJ2d3DkP.L6aK7zTj.b.V6D5X2uG.8K', '00000000-0000-0000-0000-000000000000', true)
+VALUES ('00000000-0000-0000-0000-000000000000', 'admin@example.com', 'admin', '$2a$10$1G9Y7UIa9SJIwA0SxLgu7.3YkVKaQ/HtCATAAGfxCLzuO5wADcmzq', '00000000-0000-0000-0000-000000000000', true)
 ON CONFLICT (username) DO NOTHING;
 
 -- 29. System Settings table
