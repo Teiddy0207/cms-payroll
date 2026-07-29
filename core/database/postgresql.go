@@ -70,6 +70,17 @@ func runSchemaInit(db *Database) error {
 	}
 
 	_, _ = db.sqlx.Exec("ALTER TABLE employee_face_templates ADD COLUMN IF NOT EXISTS face_embedding jsonb;")
+	_, _ = db.sqlx.Exec("ALTER TABLE competency_dictionaries ADD COLUMN IF NOT EXISTS point_value INTEGER NOT NULL DEFAULT 0;")
+	_, _ = db.sqlx.Exec("ALTER TABLE competency_dictionaries ALTER COLUMN point_value TYPE INTEGER USING point_value::integer;")
+	_, _ = db.sqlx.Exec(`CREATE TABLE IF NOT EXISTS employee_competencies (
+		user_profile_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+		competency_id UUID NOT NULL REFERENCES competency_dictionaries(id) ON DELETE CASCADE,
+		created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+		PRIMARY KEY (user_profile_id, competency_id)
+	);`)
+
+	_, _ = db.sqlx.Exec("ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS p2_base_allowance DECIMAL(15, 2) NOT NULL DEFAULT 0.00;")
+	_, _ = db.sqlx.Exec("ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS p2_cap DECIMAL(15, 2) NOT NULL DEFAULT 0.00;")
 
 	logger.Info("Schema initialized successfully!")
 	return nil

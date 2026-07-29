@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS job_descriptions (
     midpoint DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     min_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     max_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    p2_base_allowance DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    p2_cap DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -188,10 +190,20 @@ CREATE TABLE IF NOT EXISTS competency_dictionaries (
     type_id UUID NOT NULL REFERENCES type_competencies(id) ON DELETE CASCADE,
     description TEXT,
     is_default BOOLEAN NOT NULL DEFAULT false,
+    point_value INTEGER NOT NULL DEFAULT 0,
     proficiency_level_max DECIMAL(5, 2) NOT NULL DEFAULT 5.00,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- 14b. Employee Competencies (for P2 personal allowances)
+CREATE TABLE IF NOT EXISTS employee_competencies (
+    user_profile_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    competency_id UUID NOT NULL REFERENCES competency_dictionaries(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_profile_id, competency_id)
+);
+
 
 -- 15. Competency Evaluations (for P2)
 CREATE TABLE IF NOT EXISTS competency_evaluations (
