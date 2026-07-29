@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS job_descriptions (
     midpoint DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     min_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     max_salary DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    p2_base_allowance DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    p2_cap DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -188,10 +190,20 @@ CREATE TABLE IF NOT EXISTS competency_dictionaries (
     type_id UUID NOT NULL REFERENCES type_competencies(id) ON DELETE CASCADE,
     description TEXT,
     is_default BOOLEAN NOT NULL DEFAULT false,
+    point_value INTEGER NOT NULL DEFAULT 0,
     proficiency_level_max DECIMAL(5, 2) NOT NULL DEFAULT 5.00,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- 14b. Employee Competencies (for P2 personal allowances)
+CREATE TABLE IF NOT EXISTS employee_competencies (
+    user_profile_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    competency_id UUID NOT NULL REFERENCES competency_dictionaries(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_profile_id, competency_id)
+);
+
 
 -- 15. Competency Evaluations (for P2)
 CREATE TABLE IF NOT EXISTS competency_evaluations (
@@ -380,7 +392,7 @@ VALUES ('00000000-0000-0000-0000-000000000000', 'ADMIN_POS', 'Administrator', 'S
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO users (id, email, username, password, position_id, is_active)
-VALUES ('00000000-0000-0000-0000-000000000000', 'admin@example.com', 'admin', '$2a$10$7/Zf9Y.yD8l.y6K4L.9tLeqJ2d3DkP.L6aK7zTj.b.V6D5X2uG.8K', '00000000-0000-0000-0000-000000000000', true)
+VALUES ('00000000-0000-0000-0000-000000000000', 'admin@example.com', 'admin', '$2a$10$1G9Y7UIa9SJIwA0SxLgu7.3YkVKaQ/HtCATAAGfxCLzuO5wADcmzq', '00000000-0000-0000-0000-000000000000', true)
 ON CONFLICT (username) DO NOTHING;
 
 -- 29. System Settings table

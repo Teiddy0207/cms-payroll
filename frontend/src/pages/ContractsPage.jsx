@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { useToast } from '../hooks/useToast.js';
+import { usePermissions } from '../contexts/PermissionsContext.jsx';
 
 const PAGE_SIZE = 20;
 
@@ -25,6 +26,7 @@ function formatDate(str) {
 
 export function ContractsPage() {
   const toast = useToast();
+  const { can } = usePermissions();
   const [contracts, setContracts] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -222,12 +224,16 @@ export function ContractsPage() {
       style: { width: 140 },
       render: (_, row) => (
         <div className="td-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
-            Sửa
-          </button>
-          <button className="btn btn-danger btn-sm" onClick={() => openDelete(row)}>
-            Xóa
-          </button>
+          {can('userProfile::edit') && (
+            <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
+              Sửa
+            </button>
+          )}
+          {can('userProfile::delete') && (
+            <button className="btn btn-danger btn-sm" onClick={() => openDelete(row)}>
+              Xóa
+            </button>
+          )}
         </div>
       )
     }
@@ -242,9 +248,11 @@ export function ContractsPage() {
           <h2 className="page-title">Hợp đồng lao động</h2>
           <p className="page-subtitle">Quản lý các hợp đồng lao động, mức lương cơ bản (P1) của nhân sự ({total} hợp đồng)</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          Thêm hợp đồng
-        </button>
+        {can('userProfile::edit') && (
+          <button className="btn btn-primary" onClick={openCreate}>
+            Thêm hợp đồng
+          </button>
+        )}
       </div>
 
       <div className="table-container">

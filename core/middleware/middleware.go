@@ -137,8 +137,8 @@ func (m *Middleware) PermissionMiddleware(requiredPermissions ...string) echo.Mi
 			// 	}
 			// }
 
-			// Nếu không có permission nào khớp, trả về lỗi Forbidden
-			return m.Unauthorized(errors.ErrForbidden, "user does not have permission to access this resource")
+			// Nếu không có permission nào khớp, trả về lỗi 403 Forbidden (không phải 401)
+			return m.Forbidden(errors.ErrForbidden, "user does not have permission to access this resource")
 		}
 	}
 }

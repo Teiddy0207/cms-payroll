@@ -20,11 +20,11 @@ func (r *PDFRouter) Setup(e *echo.Echo, mw *middleware.Middleware) {
 	pdf := e.Group("/api/v1/private/pdf", mw.AuthMiddleware())
 
 	// Xử lý tệp PDF
-	pdf.POST("/merge", r.ctrl.UploadAndMerge)       // Gộp nhiều PDF
-	pdf.POST("/compress", r.ctrl.UploadAndCompress)  // Nén PDF
-	pdf.POST("/watermark", r.ctrl.UploadAndWatermark) // Thêm watermark
-	pdf.POST("/rotate", r.ctrl.UploadAndRotate)      // Xoay trang
+	pdf.POST("/merge", r.ctrl.UploadAndMerge, mw.PermissionMiddleware("storage::edit"))
+	pdf.POST("/compress", r.ctrl.UploadAndCompress, mw.PermissionMiddleware("storage::edit"))
+	pdf.POST("/watermark", r.ctrl.UploadAndWatermark, mw.PermissionMiddleware("storage::edit"))
+	pdf.POST("/rotate", r.ctrl.UploadAndRotate, mw.PermissionMiddleware("storage::edit"))
 
 	// Download kết quả
-	pdf.GET("/download", r.ctrl.DownloadFile) // Download file output
+	pdf.GET("/download", r.ctrl.DownloadFile, mw.PermissionMiddleware("storage::edit"))
 }

@@ -62,59 +62,7 @@ func SeedPermissions(ctx context.Context, db database.Database) error {
 		{Name: "Đánh giá năng lực", Slug: "userProfileCompetency::edit", Resource: "user_profile_competencies_fe", Action: "Chỉnh sửa", IsSystem: false},
 		{Name: "Đánh giá năng lực", Slug: "userProfileCompetency::delete", Resource: "user_profile_competencies_fe", Action: "Xoá", IsSystem: false},
 		{Name: "Đánh giá năng lực", Slug: "userProfileCompetency::review", Resource: "user_profile_competencies_fe", Action: "Xét duyệt", IsSystem: false},
-		// Thư viện KPI
-		{Name: "Thư viện KPI", Slug: "jobKpi::read", Resource: "job_kpis_fe", Action: "Xem", IsSystem: false},
-		{Name: "Thư viện KPI", Slug: "jobKpi::edit", Resource: "job_kpis_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Thư viện KPI", Slug: "jobKpi::delete", Resource: "job_kpis_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Thư viện KPI", Slug: "jobKpi::review", Resource: "job_kpis_fe", Action: "Xét duyệt", IsSystem: false},
-		// Phân bố tỉ trọng KPI
-		{Name: "Phân bố tỉ trọng KPI", Slug: "jobAllocateKpi::read", Resource: "job_allocate_kpis_fe", Action: "Xem", IsSystem: false},
-		{Name: "Phân bố tỉ trọng KPI", Slug: "jobAllocateKpi::edit", Resource: "job_allocate_kpis_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Phân bố tỉ trọng KPI", Slug: "jobAllocateKpi::delete", Resource: "job_allocate_kpis_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Phân bố tỉ trọng KPI", Slug: "jobAllocateKpi::review", Resource: "job_allocate_kpis_fe", Action: "Xét duyệt", IsSystem: false},
-		{Name: "Phân bố tỉ trọng KPI", Slug: "jobAllocateKpi::system", Resource: "job_allocate_kpis_fe", Action: "Hệ thống", IsSystem: true},
-		// Kết quả KPI
-		{Name: "Kết quả KPI", Slug: "kpiResult::read", Resource: "kpi_results_fe", Action: "Xem", IsSystem: false},
-		{Name: "Kết quả KPI", Slug: "kpiResult::edit", Resource: "kpi_results_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Kết quả KPI", Slug: "kpiResult::delete", Resource: "kpi_results_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Kết quả KPI", Slug: "kpiResult::review", Resource: "kpi_results_fe", Action: "Xét duyệt", IsSystem: false},
-		{Name: "Kết quả KPI", Slug: "kpiResult::system", Resource: "kpi_results_fe", Action: "Hệ thống", IsSystem: true},
-		// Kết quả thực hiện KPI của công ty
-		{Name: "Kết quả thực hiện KPI của công ty", Slug: "kpiResultSummary::read", Resource: "kpi_result_summaries_fe", Action: "Xem", IsSystem: false},
-		{Name: "Kết quả thực hiện KPI của công ty", Slug: "kpiResultSummary::review", Resource: "kpi_result_summaries_fe", Action: "Xét duyệt", IsSystem: false},
-		// Mục tiêu KPI
-		{Name: "Mục tiêu KPI", Slug: "kpiTarget::read", Resource: "kpi_targets_fe", Action: "Xem", IsSystem: false},
-		{Name: "Mục tiêu KPI", Slug: "kpiTarget::edit", Resource: "kpi_targets_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Mục tiêu KPI", Slug: "kpiTarget::delete", Resource: "kpi_targets_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Mục tiêu KPI", Slug: "kpiTarget::review", Resource: "kpi_targets_fe", Action: "Xét duyệt", IsSystem: false},
-		// Chấm điểm KPI
-		{Name: "Chấm điểm KPI", Slug: "kpiScoring::read", Resource: "kpi_scorings_fe", Action: "Xem", IsSystem: false},
-		{Name: "Chấm điểm KPI", Slug: "kpiScoring::edit", Resource: "kpi_scorings_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Chấm điểm KPI", Slug: "kpiScoring::delete", Resource: "kpi_scorings_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Chấm điểm KPI", Slug: "kpiScoring::review", Resource: "kpi_scorings_fe", Action: "Xét duyệt", IsSystem: false},
-		{Name: "Chấm điểm KPI", Slug: "kpiScoring::system", Resource: "kpi_scorings_fe", Action: "Hệ thống", IsSystem: true},
-		// Viễn cảnh
-		{Name: "Viễn cảnh", Slug: "jobPerspective::read", Resource: "job_perspectives_fe", Action: "Xem", IsSystem: false},
-		{Name: "Viễn cảnh", Slug: "jobPerspective::edit", Resource: "job_perspectives_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Viễn cảnh", Slug: "jobPerspective::delete", Resource: "job_perspectives_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Viễn cảnh", Slug: "jobPerspective::review", Resource: "job_perspectives_fe", Action: "Xét duyệt", IsSystem: false},
-		// Phân bố tỉ trọng viễn cảnh
-		{Name: "Phân bố tỉ trọng viễn cảnh", Slug: "jobAllocatePerspective::read", Resource: "job_allocate_perspectives_fe", Action: "Xem", IsSystem: false},
-		{Name: "Phân bố tỉ trọng viễn cảnh", Slug: "jobAllocatePerspective::edit", Resource: "job_allocate_perspectives_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Phân bố tỉ trọng viễn cảnh", Slug: "jobAllocatePerspective::delete", Resource: "job_allocate_perspectives_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Phân bố tỉ trọng viễn cảnh", Slug: "jobAllocatePerspective::review", Resource: "job_allocate_perspectives_fe", Action: "Xét duyệt", IsSystem: false},
-		{Name: "Phân bố tỉ trọng viễn cảnh", Slug: "jobAllocatePerspective::system", Resource: "job_allocate_perspectives_fe", Action: "Hệ thống", IsSystem: true},
-		// KPO
-		{Name: "KPO", Slug: "jobKpo::read", Resource: "job_kpos_fe", Action: "Xem", IsSystem: false},
-		{Name: "KPO", Slug: "jobKpo::edit", Resource: "job_kpos_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "KPO", Slug: "jobKpo::delete", Resource: "job_kpos_fe", Action: "Xoá", IsSystem: false},
-		{Name: "KPO", Slug: "jobKpo::review", Resource: "job_kpos_fe", Action: "Xét duyệt", IsSystem: false},
-		// Phân bố tỉ trọng KPO
-		{Name: "Phân bố tỉ trọng KPO", Slug: "jobAllocateKpo::read", Resource: "job_allocate_kpos_fe", Action: "Xem", IsSystem: false},
-		{Name: "Phân bố tỉ trọng KPO", Slug: "jobAllocateKpo::edit", Resource: "job_allocate_kpos_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Phân bố tỉ trọng KPO", Slug: "jobAllocateKpo::delete", Resource: "job_allocate_kpos_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Phân bố tỉ trọng KPO", Slug: "jobAllocateKpo::review", Resource: "job_allocate_kpos_fe", Action: "Xét duyệt", IsSystem: false},
-		{Name: "Phân bố tỉ trọng KPO", Slug: "jobAllocateKpo::system", Resource: "job_allocate_kpos_fe", Action: "Hệ thống", IsSystem: true},
+
 		// Vị trí chức danh
 		{Name: "Vị trí chức danh", Slug: "jobPosition::read", Resource: "job_positions_fe", Action: "Xem", IsSystem: false},
 		{Name: "Vị trí chức danh", Slug: "jobPosition::edit", Resource: "job_positions_fe", Action: "Chỉnh sửa", IsSystem: false},
@@ -134,30 +82,7 @@ func SeedPermissions(ctx context.Context, db database.Database) error {
 		{Name: "Hồ sơ nhân sự", Slug: "userProfile::delete", Resource: "user_profiles_fe", Action: "Xoá", IsSystem: false},
 		{Name: "Hồ sơ nhân sự", Slug: "userProfile::review", Resource: "user_profiles_fe", Action: "Xét duyệt", IsSystem: false},
 		// Khen thưởng
-		{Name: "Khen thưởng", Slug: "reward::read", Resource: "rewards_fe", Action: "Xem", IsSystem: false},
-		{Name: "Khen thưởng", Slug: "reward::edit", Resource: "rewards_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Khen thưởng", Slug: "reward::delete", Resource: "rewards_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Khen thưởng", Slug: "reward::review", Resource: "rewards_fe", Action: "Xét duyệt", IsSystem: false},
-		// Phạt
-		{Name: "Phạt", Slug: "punish::read", Resource: "punishes_fe", Action: "Xem", IsSystem: false},
-		{Name: "Phạt", Slug: "punish::edit", Resource: "punishes_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Phạt", Slug: "punish::delete", Resource: "punishes_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Phạt", Slug: "punish::review", Resource: "punishes_fe", Action: "Xét duyệt", IsSystem: false},
-		// Phụ cấp
-		{Name: "Phụ cấp", Slug: "allowance::read", Resource: "allowances_fe", Action: "Xem", IsSystem: false},
-		{Name: "Phụ cấp", Slug: "allowance::edit", Resource: "allowances_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Phụ cấp", Slug: "allowance::delete", Resource: "allowances_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Phụ cấp", Slug: "allowance::review", Resource: "allowances_fe", Action: "Xét duyệt", IsSystem: false},
-		// Lịch làm việc
-		{Name: "Lịch làm việc", Slug: "workSchedule::read", Resource: "work_schedules_fe", Action: "Xem", IsSystem: false},
-		{Name: "Lịch làm việc", Slug: "workSchedule::edit", Resource: "work_schedules_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Lịch làm việc", Slug: "workSchedule::delete", Resource: "work_schedules_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Lịch làm việc", Slug: "workSchedule::review", Resource: "work_schedules_fe", Action: "Xét duyệt", IsSystem: false},
-		// Ngày lễ
-		{Name: "Ngày lễ", Slug: "holiday::read", Resource: "holidays_fe", Action: "Xem", IsSystem: false},
-		{Name: "Ngày lễ", Slug: "holiday::edit", Resource: "holidays_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Ngày lễ", Slug: "holiday::delete", Resource: "holidays_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Ngày lễ", Slug: "holiday::review", Resource: "holidays_fe", Action: "Xét duyệt", IsSystem: false},
+
 		// Ngày nghỉ phép
 		{Name: "Ngày nghỉ phép", Slug: "dayOfLeave::read", Resource: "day_of_leaves_fe", Action: "Xem", IsSystem: false},
 		{Name: "Ngày nghỉ phép", Slug: "dayOfLeave::edit", Resource: "day_of_leaves_fe", Action: "Chỉnh sửa", IsSystem: false},
@@ -203,7 +128,6 @@ func SeedPermissions(ctx context.Context, db database.Database) error {
 		{Name: "Báo cáo hệ thống", Slug: "reportSystem::read", Resource: "report_systems_fe", Action: "Xem", IsSystem: false},
 		{Name: "Báo cáo phòng ban", Slug: "reportDepartment::read", Resource: "report_departments_fe", Action: "Xem", IsSystem: false},
 		{Name: "Báo cáo cá nhân", Slug: "reportSelf::read", Resource: "report_selves_fe", Action: "Xem", IsSystem: false},
-		{Name: "Báo cáo KPI", Slug: "reportKPI::read", Resource: "report_kpis_fe", Action: "Xem", IsSystem: false},
 		{Name: "Báo cáo lương", Slug: "reportPayroll::read", Resource: "report_payrolls_fe", Action: "Xem", IsSystem: false},
 		// Cài đặt
 		{Name: "Cài đặt", Slug: "setting::read", Resource: "settings_fe", Action: "Xem", IsSystem: false},
@@ -215,17 +139,6 @@ func SeedPermissions(ctx context.Context, db database.Database) error {
 		{Name: "Tệp tin", Slug: "storage::delete", Resource: "storages_fe", Action: "Xoá", IsSystem: false},
 		// Báo cáo HR
 		{Name: "Báo cáo HR", Slug: "reportHR::read", Resource: "report_hrs_fe", Action: "Xem", IsSystem: false},
-		// Loại KPI / Đơn vị KPI / Tổng hợp KPI (2026-04-06)
-		{Name: "Loại KPI", Slug: "kpiType::read", Resource: "kpi_types_fe", Action: "Xem", IsSystem: false},
-		{Name: "Loại KPI", Slug: "kpiType::edit", Resource: "kpi_types_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Loại KPI", Slug: "kpiType::delete", Resource: "kpi_types_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Đơn vị KPI", Slug: "kpiUnit::read", Resource: "kpi_units_fe", Action: "Xem", IsSystem: false},
-		{Name: "Đơn vị KPI", Slug: "kpiUnit::edit", Resource: "kpi_units_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Đơn vị KPI", Slug: "kpiUnit::delete", Resource: "kpi_units_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Tổng hợp KPI", Slug: "kpiAggregate::read", Resource: "kpi_aggregates_fe", Action: "Xem", IsSystem: false},
-		{Name: "Tổng hợp KPI", Slug: "kpiAggregate::edit", Resource: "kpi_aggregates_fe", Action: "Chỉnh sửa", IsSystem: false},
-		{Name: "Tổng hợp KPI", Slug: "kpiAggregate::delete", Resource: "kpi_aggregates_fe", Action: "Xoá", IsSystem: false},
-		{Name: "Tổng hợp KPI", Slug: "kpiAggregate::review", Resource: "kpi_aggregates_fe", Action: "Xét duyệt", IsSystem: false},
 		{Name: "Hội đồng cấp cao", Slug: "highCouncil::all", Resource: "representatives_fe", Action: "Đại diện", IsSystem: false},
 		{Name: "Giám đốc", Slug: "director::all", Resource: "representatives_fe", Action: "Đại diện", IsSystem: false},
 		{Name: "Công ty", Slug: "companyRepresentative::all", Resource: "representatives_fe", Action: "Đại diện", IsSystem: false},

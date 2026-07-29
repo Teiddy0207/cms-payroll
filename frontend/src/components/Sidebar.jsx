@@ -2,12 +2,13 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Drawer } from 'antd';
 import { authAPI } from '../api/client.js';
 import { useToast } from '../hooks/useToast.js';
+import { usePermissions } from '../contexts/PermissionsContext.jsx';
 
 const navSections = [
   {
     title: 'Thống kê',
     items: [
-      { path: '/dashboard', label: 'Dashboard', icon: 'fa-solid fa-chart-line' }
+      { path: '/dashboard', label: 'Dashboard', icon: 'fa-solid fa-chart-line', permission: 'dashboard::read' }
     ]
   },
   {
@@ -19,16 +20,16 @@ const navSections = [
   {
     title: 'Lương',
     items: [
-      { path: '/payroll-run', label: 'Tính lương tháng', icon: 'fa-solid fa-calculator' },
-      { path: '/payroll-formulas', label: 'Công thức lương', icon: 'fa-solid fa-square-root-variable' }
+      { path: '/payroll-run', label: 'Tính lương tháng', icon: 'fa-solid fa-calculator', permission: 'salary::read' },
+      { path: '/payroll-formulas', label: 'Công thức lương', icon: 'fa-solid fa-square-root-variable', permission: 'formulaDynamic::read' }
     ]
   },
   {
     title: 'Chấm công',
     items: [
-      { path: '/face-scan', label: 'Chấm công khuôn mặt', icon: 'fa-solid fa-camera' },
-      { path: '/timesheets', label: 'Bảng chấm công', icon: 'fa-solid fa-calendar-days' },
-      { path: '/attendance-logs', label: 'Nhật ký chấm công', icon: 'fa-solid fa-list-check' },
+      { path: '/face-scan', label: 'Chấm công khuôn mặt', icon: 'fa-solid fa-camera', permission: 'dailyTimekeeping::edit' },
+      { path: '/timesheets', label: 'Bảng chấm công', icon: 'fa-solid fa-calendar-days', permission: 'timekeepingSheet::read' },
+      { path: '/attendance-logs', label: 'Nhật ký chấm công', icon: 'fa-solid fa-list-check', permission: 'dailyTimekeeping::read' },
       { path: '/explanation-requests', label: 'Giải trình bù công', icon: 'fa-solid fa-file-pen' },
       { path: '/ot-requests', label: 'Đăng ký làm thêm (OT)', icon: 'fa-solid fa-clock' }
     ]
@@ -36,35 +37,42 @@ const navSections = [
   {
     title: 'Quản lý nhân sự',
     items: [
-      { path: '/departments', label: 'Phòng ban', icon: 'fa-solid fa-building' },
-      { path: '/employees', label: 'Nhân viên', icon: 'fa-solid fa-users' }
+      { path: '/departments', label: 'Phòng ban', icon: 'fa-solid fa-building', permission: 'department::read' },
+      { path: '/employees', label: 'Nhân viên', icon: 'fa-solid fa-users', permission: 'userProfile::read' }
     ]
   },
   {
     title: 'Đánh giá',
     items: [
-      { path: '/competencies', label: 'Năng lực', icon: 'fa-solid fa-award' },
-      { path: '/job-positions', label: 'Vị trí công việc', icon: 'fa-solid fa-briefcase' }
+      { path: '/competencies', label: 'Năng lực', icon: 'fa-solid fa-award', permission: 'jobCapability::read' },
+      { path: '/job-positions', label: 'Vị trí công việc', icon: 'fa-solid fa-briefcase', permission: 'jobPosition::read' }
     ]
   },
   {
     title: 'Hệ thống',
     items: [
-      { path: '/contracts', label: 'Hợp đồng', icon: 'fa-solid fa-file-contract' },
-      { path: '/settings', label: 'Cài đặt', icon: 'fa-solid fa-gear' }
+      { path: '/contracts', label: 'Hợp đồng', icon: 'fa-solid fa-file-contract', permission: 'userProfile::read' },
+      { path: '/roles-permissions', label: 'Phân quyền', icon: 'fa-solid fa-user-shield', permission: 'role::read' },
+      { path: '/settings', label: 'Cài đặt', icon: 'fa-solid fa-gear', permission: 'setting::read' }
     ]
   },
   {
     title: 'Hỗ trợ',
     items: [
-      { path: '/pdf-tools', label: 'Công cụ PDF', icon: 'fa-solid fa-file-pdf' }
+      { path: '/pdf-tools', label: 'Công cụ PDF', icon: 'fa-solid fa-file-pdf', permission: 'storage::edit' }
     ]
   }
 ];
 
 export function Sidebar({ mobileOpen, onClose }) {
-  const navigate = useNavigate();
-  const toast = useToast();
+  const { can, loaded } = usePermissions();
+
+  const hasPermission = (perm) => {
+    if (!perm) return true;
+    if (!loaded) return false; // ẩn menu cho đến khi load xong quyền hạn
+    if (perm === 'dashboard::read') return true;
+    return can(perm);
+  };
 
   const handleLogout = async () => {
     try {
@@ -91,24 +99,29 @@ export function Sidebar({ mobileOpen, onClose }) {
       </div>
 
       <nav className="sidebar-nav">
-        {navSections.map((section) => (
-          <div key={section.title} className="nav-section" style={{ marginBottom: 12 }}>
-            <div className="nav-section-label">{section.title}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={handleNavClick}
-                  className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-                >
-                  {item.icon && <i className={item.icon} style={{ width: '20px', fontSize: '14px', marginRight: '6px' }}></i>}
-                  <span className="nav-label">{item.label}</span>
-                </NavLink>
-              ))}
+        {navSections.map((section) => {
+          const visibleItems = section.items.filter(item => hasPermission(item.permission));
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={section.title} className="nav-section" style={{ marginBottom: 12 }}>
+              <div className="nav-section-label">{section.title}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {visibleItems.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    onClick={handleNavClick}
+                    className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                  >
+                    {item.icon && <i className={item.icon} style={{ width: '20px', fontSize: '14px', marginRight: '6px' }}></i>}
+                    <span className="nav-label">{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       <div className="sidebar-footer">

@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { useToast } from '../hooks/useToast.js';
+import { usePermissions } from '../contexts/PermissionsContext.jsx';
 
 const PAGE_SIZE = 20;
 
@@ -17,6 +18,7 @@ const emptyForm = {
 
 export function DepartmentsPage() {
   const toast = useToast();
+  const { can } = usePermissions();
   const [departments, setDepartments] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -157,12 +159,16 @@ export function DepartmentsPage() {
       style: { width: 140 },
       render: (_, row) => (
         <div className="td-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
-            Sửa
-          </button>
-          <button className="btn btn-danger btn-sm" onClick={() => openDelete(row)}>
-            Xóa
-          </button>
+          {can('department::edit') && (
+            <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
+              Sửa
+            </button>
+          )}
+          {can('department::delete') && (
+            <button className="btn btn-danger btn-sm" onClick={() => openDelete(row)}>
+              Xóa
+            </button>
+          )}
         </div>
       )
     }
@@ -177,9 +183,11 @@ export function DepartmentsPage() {
           <h2 className="page-title">Phòng ban</h2>
           <p className="page-subtitle">Quản lý cơ cấu phòng ban, đơn vị của công ty ({total} phòng ban)</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          Thêm phòng ban
-        </button>
+        {can('department::edit') && (
+          <button className="btn btn-primary" onClick={openCreate}>
+            Thêm phòng ban
+          </button>
+        )}
       </div>
 
       <div className="table-container">
