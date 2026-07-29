@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { useToast } from '../hooks/useToast.js';
+import { usePermissions } from '../contexts/PermissionsContext.jsx';
 
 const PAGE_SIZE = 20;
 
@@ -28,6 +29,7 @@ const emptyForm = {
 
 export function JobPositionsPage() {
   const toast = useToast();
+  const { can } = usePermissions();
   const [positions, setPositions] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -358,12 +360,16 @@ export function JobPositionsPage() {
       style: { width: 220 },
       render: (_, row) => (
         <div className="td-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
-            Sửa
-          </button>
-          <button className="btn btn-danger btn-sm" onClick={() => openDelete(row)}>
-            Xóa
-          </button>
+          {can('jobPosition::edit') && (
+            <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
+              Sửa
+            </button>
+          )}
+          {can('jobPosition::delete') && (
+            <button className="btn btn-danger btn-sm" onClick={() => openDelete(row)}>
+              Xóa
+            </button>
+          )}
         </div>
       )
     }
@@ -380,9 +386,11 @@ export function JobPositionsPage() {
           <h2 className="page-title">Vị trí công việc</h2>
           <p className="page-subtitle">Quản lý các chức danh & tiêu chuẩn lương cứng P1 ({total} vị trí)</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          Thêm vị trí
-        </button>
+        {can('jobPosition::edit') && (
+          <button className="btn btn-primary" onClick={openCreate}>
+            Thêm vị trí
+          </button>
+        )}
       </div>
 
       <div style={{

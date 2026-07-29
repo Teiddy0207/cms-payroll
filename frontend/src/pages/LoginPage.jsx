@@ -4,11 +4,13 @@ import { Form, Input, Button } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { authAPI } from '../api/client.js';
 import { useToast } from '../hooks/useToast.js';
+import { usePermissions } from '../contexts/PermissionsContext.jsx';
 
 export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const { refetch } = usePermissions();
 
   const handleFinish = async (values) => {
     if (!values.identifier || !values.password) {
@@ -21,6 +23,7 @@ export function LoginPage() {
       const token = res.data?.data?.access_token || res.data?.access_token;
       if (token) {
         localStorage.setItem('auth_token', token);
+        await refetch(); // load permissions trước khi navigate để sidebar hiển thị đúng
         toast.success('Đăng nhập thành công', 'Chào mừng trở lại!');
         navigate('/dashboard');
       } else {

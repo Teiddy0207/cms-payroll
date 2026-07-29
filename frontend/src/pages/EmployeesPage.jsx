@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { useToast } from '../hooks/useToast.js';
+import { usePermissions } from '../contexts/PermissionsContext.jsx';
 
 const PAGE_SIZE = 20;
 
@@ -29,6 +30,7 @@ function formatDate(str) {
 
 export function EmployeesPage() {
   const toast = useToast();
+  const { can } = usePermissions();
   const [employees, setEmployees] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -310,15 +312,21 @@ export function EmployeesPage() {
           <button className="btn btn-secondary btn-sm" id={`emp-detail-${row.id}`} onClick={() => openDetail(row)}>
             Chi tiết
           </button>
-          <button className="btn btn-secondary btn-sm" id={`emp-comp-${row.id}`} onClick={() => openManageCompetencies(row)}>
-            Năng lực
-          </button>
-          <button className="btn btn-secondary btn-sm" id={`emp-edit-${row.id}`} onClick={() => openEdit(row)}>
-            Sửa
-          </button>
-          <button className="btn btn-danger btn-sm" id={`emp-delete-${row.id}`} onClick={() => openDelete(row)}>
-            Xóa
-          </button>
+          {can('userProfileCompetency::edit') && (
+            <button className="btn btn-secondary btn-sm" id={`emp-comp-${row.id}`} onClick={() => openManageCompetencies(row)}>
+              Năng lực
+            </button>
+          )}
+          {can('userProfile::edit') && (
+            <button className="btn btn-secondary btn-sm" id={`emp-edit-${row.id}`} onClick={() => openEdit(row)}>
+              Sửa
+            </button>
+          )}
+          {can('userProfile::delete') && (
+            <button className="btn btn-danger btn-sm" id={`emp-delete-${row.id}`} onClick={() => openDelete(row)}>
+              Xóa
+            </button>
+          )}
         </div>
       )
     }
@@ -338,9 +346,11 @@ export function EmployeesPage() {
           <h2 className="page-title">Nhân viên</h2>
           <p className="page-subtitle">Quản lý thông tin nhân sự ({total} nhân viên)</p>
         </div>
-        <button className="btn btn-primary" id="add-employee-btn" onClick={openCreate}>
-          + Thêm nhân viên
-        </button>
+        {can('userProfile::edit') && (
+          <button className="btn btn-primary" id="add-employee-btn" onClick={openCreate}>
+            + Thêm nhân viên
+          </button>
+        )}
       </div>
 
       <div className="table-container">

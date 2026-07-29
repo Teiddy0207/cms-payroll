@@ -23,21 +23,25 @@ func NewMeetingController(svc service.MeetingServiceInterface) *MeetingControlle
 	return &MeetingController{svc: svc}
 }
 
-func getUserID(ctx echo.Context) uuid.UUID {
+// getUserID reads the authenticated user ID from the token claims set by
+// AuthMiddleware. The bool return reports whether claims were actually
+// present — callers must not use `id == uuid.Nil` for this, since seeded
+// accounts (e.g. admin) can legitimately have the all-zero UUID.
+func getUserID(ctx echo.Context) (uuid.UUID, bool) {
 	userData := ctx.Get(constants.ContextTokenData)
 	if userData == nil {
-		return uuid.Nil
+		return uuid.Nil, false
 	}
 	claims, ok := userData.(*utils.TokenClaims)
 	if !ok {
-		return uuid.Nil
+		return uuid.Nil, false
 	}
-	return claims.UserID
+	return claims.UserID, true
 }
 
 func (c *MeetingController) CreateMeeting(ctx echo.Context) error {
-	hostID := getUserID(ctx)
-	if hostID == uuid.Nil {
+	hostID, ok := getUserID(ctx)
+	if !ok {
 		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 
@@ -55,8 +59,8 @@ func (c *MeetingController) CreateMeeting(ctx echo.Context) error {
 }
 
 func (c *MeetingController) UpdateMeeting(ctx echo.Context) error {
-	hostID := getUserID(ctx)
-	if hostID == uuid.Nil {
+	hostID, ok := getUserID(ctx)
+	if !ok {
 		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 
@@ -79,8 +83,8 @@ func (c *MeetingController) UpdateMeeting(ctx echo.Context) error {
 }
 
 func (c *MeetingController) GetMeetings(ctx echo.Context) error {
-	userID := getUserID(ctx)
-	if userID == uuid.Nil {
+	userID, ok := getUserID(ctx)
+	if !ok {
 		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 
@@ -99,8 +103,8 @@ func (c *MeetingController) GetMeetingByID(ctx echo.Context) error {
 		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid meeting id"})
 	}
 
-	userID := getUserID(ctx)
-	if userID == uuid.Nil {
+	_, ok := getUserID(ctx)
+	if !ok {
 		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 
@@ -119,8 +123,8 @@ func (c *MeetingController) UpdateRSVP(ctx echo.Context) error {
 		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid meeting id"})
 	}
 
-	userID := getUserID(ctx)
-	if userID == uuid.Nil {
+	userID, ok := getUserID(ctx)
+	if !ok {
 		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 
@@ -142,18 +146,19 @@ func (c *MeetingController) StreamNotifications(ctx echo.Context) error {
 	ctx.Response().Header().Set(echo.HeaderConnection, "keep-alive")
 	ctx.Response().Header().Set("Access-Control-Allow-Origin", "*")
 
-	userID := getUserID(ctx)
-	if userID == uuid.Nil {
+	userID, authenticated := getUserID(ctx)
+	if !authenticated {
 		tokenStr := ctx.QueryParam("token")
 		if tokenStr != "" {
 			claims, err := utils.ValidateAndParseToken(tokenStr)
 			if err == nil && claims != nil {
 				userID = claims.UserID
+				authenticated = true
 			}
 		}
 	}
 
-	if userID == uuid.Nil {
+	if !authenticated {
 		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 
@@ -183,8 +188,8 @@ func (c *MeetingController) StreamNotifications(ctx echo.Context) error {
 }
 
 func (c *MeetingController) SendWebRTCSignal(ctx echo.Context) error {
-	userID := getUserID(ctx)
-	if userID == uuid.Nil {
+	userID, ok := getUserID(ctx)
+	if !ok {
 		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 

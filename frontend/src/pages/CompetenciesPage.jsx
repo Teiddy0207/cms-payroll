@@ -6,18 +6,27 @@ import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { useToast } from '../hooks/useToast.js';
+import { usePermissions } from '../contexts/PermissionsContext.jsx';
 
 const PAGE_SIZE = 20;
+
+const COMPETENCY_TYPES = [
+  { id: '00000000-0000-0000-0000-000000000001', name: 'Tiêu chuẩn năng lực nhận thức' },
+  { id: '00000000-0000-0000-0000-000000000002', name: 'Tiêu chuẩn năng lực hành nghề' },
+  { id: '00000000-0000-0000-0000-000000000003', name: 'Tiêu chuẩn năng lực chuyên môn và kỹ năng' },
+];
 
 const emptyForm = {
   code: '',
   name: '',
   description: '',
   point_value: 0,
+  type_id: '00000000-0000-0000-0000-000000000001',
 };
 
 export function CompetenciesPage() {
   const toast = useToast();
+  const { can } = usePermissions();
   const [competencies, setCompetencies] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -74,6 +83,7 @@ export function CompetenciesPage() {
       name: comp.name || '',
       description: comp.description || '',
       point_value: comp.point_value || 0,
+      type_id: comp.type_id || '00000000-0000-0000-0000-000000000001',
     });
     setEditOpen(true);
   };
@@ -170,12 +180,16 @@ export function CompetenciesPage() {
       style: { width: 140 },
       render: (_, row) => (
         <div className="td-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
-            Sửa
-          </button>
-          <button className="btn btn-danger btn-sm" onClick={() => openDelete(row)}>
-            Xóa
-          </button>
+          {can('jobCapability::edit') && (
+            <button className="btn btn-secondary btn-sm" onClick={() => openEdit(row)}>
+              Sửa
+            </button>
+          )}
+          {can('jobCapability::delete') && (
+            <button className="btn btn-danger btn-sm" onClick={() => openDelete(row)}>
+              Xóa
+            </button>
+          )}
         </div>
       )
     }
@@ -190,9 +204,11 @@ export function CompetenciesPage() {
           <h2 className="page-title">Từ điển năng lực (P2)</h2>
           <p className="page-subtitle">Quản lý từ điển năng lực dùng làm căn cứ tính lương năng lực P2 ({total} năng lực)</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          Thêm năng lực
-        </button>
+        {can('jobCapability::edit') && (
+          <button className="btn btn-primary" onClick={openCreate}>
+            Thêm năng lực
+          </button>
+        )}
       </div>
 
       <div className="table-container">
@@ -284,6 +300,19 @@ function CompetencyForm({ title, onSubmit, isOpen, onClose, form, handleFormChan
           onChange={handleFormChange} 
           placeholder="VD: Kỹ năng Tiếng Anh IELTS 7.0" 
         />
+      </div>
+      <div className="form-group">
+        <label className="form-label">Loại năng lực <span className="required">*</span></label>
+        <select
+          className="form-control"
+          name="type_id"
+          value={form.type_id}
+          onChange={handleFormChange}
+        >
+          {COMPETENCY_TYPES.map(t => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
       </div>
       <div className="form-group">
         <label className="form-label">Mô tả</label>

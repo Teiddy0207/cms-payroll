@@ -25,5 +25,5 @@ func (r *ActivityLogRouter) Setup(e *echo.Echo, middlewareInstance *middleware.M
 
 	// Apply authentication and permission middleware
 	// We assume a generic 'activity-log::read' permission, or whatever suits the system
-	activityLogRoutes.GET("", r.ActivityLogController.GetActivityLogs, middlewareInstance.AuthMiddleware(), middlewareInstance.PermissionMiddleware()) //"activity-log::read"
+	activityLogRoutes.GET("", r.ActivityLogController.GetActivityLogs, middlewareInstance.AuthMiddleware(), middlewareInstance.PermissionMiddleware("log::read"))
 }

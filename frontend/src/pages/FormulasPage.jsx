@@ -4,9 +4,11 @@ import { Table } from '../components/Table.jsx';
 import { Modal } from '../components/Modal.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { useToast } from '../hooks/useToast.js';
+import { usePermissions } from '../contexts/PermissionsContext.jsx';
 
 export function FormulasPage() {
 	const toast = useToast();
+	const { can } = usePermissions();
 	const [formulas, setFormulas] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [modalOpen, setModalOpen] = useState(false);
@@ -152,8 +154,8 @@ export function FormulasPage() {
 			title: 'Thao tác',
 			render: (_, row) => (
 				<div style={{ display: 'flex', gap: 8 }}>
-					<button className="btn btn-sm btn-secondary" onClick={() => handleOpenEdit(row)}>Sửa</button>
-					<button className="btn btn-sm btn-danger" onClick={() => handleDelete(row.id)}>Xoá</button>
+					{can('formulaDynamic::edit') && <button className="btn btn-sm btn-secondary" onClick={() => handleOpenEdit(row)}>Sửa</button>}
+					{can('formulaDynamic::delete') && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(row.id)}>Xoá</button>}
 				</div>
 			)
 		}
@@ -168,9 +170,11 @@ export function FormulasPage() {
 						Cấu hình các tham số và công thức tính toán Gross, Thuế TNCN và Thực nhận theo thời gian hiệu lực
 					</p>
 				</div>
-				<button className="btn btn-primary" onClick={handleOpenCreate}>
-					➕ Thêm công thức
-				</button>
+				{can('formulaDynamic::edit') && (
+					<button className="btn btn-primary" onClick={handleOpenCreate}>
+						➕ Thêm công thức
+					</button>
+				)}
 			</div>
 
 			<div className="card">
