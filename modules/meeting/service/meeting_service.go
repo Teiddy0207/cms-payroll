@@ -1,6 +1,7 @@
 package service
 
 import (
+	"cal-salary/core/ai"
 	"cal-salary/core/errors"
 	"cal-salary/core/google"
 	"cal-salary/core/logger"
@@ -21,6 +22,7 @@ type MeetingServiceInterface interface {
 	GetMeetingByID(ctx context.Context, meetingID uuid.UUID) (*dto.MeetingResponse, *errors.AppError)
 	UpdateRSVP(ctx context.Context, meetingID, userID uuid.UUID, req *dto.UpdateRSVPRequest) *errors.AppError
 	UpdateMeeting(ctx context.Context, hostID, meetingID uuid.UUID, req *dto.CreateMeetingRequest) (*dto.MeetingResponse, *errors.AppError)
+	CompleteMeeting(ctx context.Context, meetingID uuid.UUID, audioData []byte, filename string) (*entity.MeetingSummary, *errors.AppError)
 	SaveMeetingSummary(ctx context.Context, summary *entity.MeetingSummary) *errors.AppError
 	GetMeetingSummaryByMeetingID(ctx context.Context, meetingID uuid.UUID) (*entity.MeetingSummary, *errors.AppError)
 }
@@ -29,6 +31,7 @@ type MeetingService struct {
 	repo       repository.MeetingRepositoryInterface
 	gcal       *google.CalendarService
 	natsClient *messaging.NatsClient
+	aiClient   *ai.MeetingAIClient
 }
 
 func NewMeetingService(repo repository.MeetingRepositoryInterface, gcal *google.CalendarService, natsClient *messaging.NatsClient) *MeetingService {
@@ -36,6 +39,7 @@ func NewMeetingService(repo repository.MeetingRepositoryInterface, gcal *google.
 		repo:       repo,
 		gcal:       gcal,
 		natsClient: natsClient,
+		aiClient:   ai.NewMeetingAIClient("http://127.0.0.1:5050"),
 	}
 }
 
@@ -280,5 +284,81 @@ func (s *MeetingService) GetMeetingSummaryByMeetingID(ctx context.Context, meeti
 	if err != nil {
 		return nil, errors.NewAppError(errors.ErrNotFound, "Meeting summary not found", err)
 	}
+	return summary, nil
+}
+
+// CompleteMeeting kết thúc cuộc họp và tự động tóm tắt nội dung bằng AI.
+//
+// Flow:
+//  1. Cập nhật trạng thái meeting → COMPLETED
+//  2. Gọi Python AI Service (/analyze-meeting) với file audio
+//  3. Lưu MeetingSummary vào DB
+//  4. Gửi notification cho host & attendees
+func (s *MeetingService) CompleteMeeting(ctx context.Context, meetingID uuid.UUID, audioData []byte, filename string) (*entity.MeetingSummary, *errors.AppError) {
+	// Bước 1: Lấy thông tin meeting
+	meeting, err := s.repo.GetMeetingByID(ctx, meetingID)
+	if err != nil {
+		return nil, errors.NewAppError(errors.ErrNotFound, "Không tìm thấy cuộc họp", err)
+	}
+
+	// Bước 2: Cập nhật status → COMPLETED
+	if dbErr := s.repo.UpdateMeetingStatus(ctx, meetingID, entity.MeetingStatusCompleted); dbErr != nil {
+		return nil, errors.NewAppError(errors.ErrUpdateFailed, "Không thể cập nhật trạng thái cuộc họp", dbErr)
+	}
+
+	// Bước 3: Gọi Python AI Service
+	aiResult, aiErr := s.aiClient.AnalyzeMeeting(audioData, filename)
+	if aiErr != nil {
+		logger.Warn("CompleteMeeting: AI service thất bại, lưu summary rỗng", "error", aiErr)
+		// Không block flow — vẫn đánh dấu meeting COMPLETED, summary sẽ rỗng
+		aiResult = &ai.MeetingAIResponse{
+			Summary:         "(Không thể phân tích âm thanh)",
+			KeyDecisions:    "",
+			ActionItems:     "",
+			Sentiment:       "NEUTRAL",
+			EfficiencyScore: "0/100",
+		}
+	}
+
+	// Bước 4: Lưu MeetingSummary vào DB
+	summary := &entity.MeetingSummary{
+		ID:              uuid.New(),
+		MeetingID:       meetingID,
+		Summary:         aiResult.Summary,
+		KeyDecisions:    aiResult.KeyDecisions,
+		ActionItems:     aiResult.ActionItems,
+		Sentiment:       aiResult.Sentiment,
+		EfficiencyScore: aiResult.EfficiencyScore,
+	}
+
+	if dbErr := s.repo.SaveMeetingSummary(ctx, summary); dbErr != nil {
+		return nil, errors.NewAppError(errors.ErrInternalServer, "Không thể lưu tóm tắt cuộc họp", dbErr)
+	}
+
+	// Bước 5: Thông báo cho host và tất cả attendees
+	notifText := fmt.Sprintf("Cuộc họp '%s' đã kết thúc. Xem tóm tắt ngay!", meeting.Title)
+
+	notification.GlobalHub.Publish(meeting.HostID, notification.Notification{
+		ID:        uuid.New().String(),
+		Text:      notifText,
+		Time:      "Vừa xong",
+		Read:      false,
+		MeetingID: meetingID.String(),
+		Type:      "meeting.completed",
+	})
+
+	for _, att := range meeting.Attendees {
+		if att.UserID != uuid.Nil && att.UserID != meeting.HostID {
+			notification.GlobalHub.Publish(att.UserID, notification.Notification{
+				ID:        uuid.New().String(),
+				Text:      notifText,
+				Time:      "Vừa xong",
+				Read:      false,
+				MeetingID: meetingID.String(),
+				Type:      "meeting.completed",
+			})
+		}
+	}
+
 	return summary, nil
 }

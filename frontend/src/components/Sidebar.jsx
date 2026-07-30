@@ -31,7 +31,8 @@ const navSections = [
       { path: '/timesheets', label: 'Bảng chấm công', icon: 'fa-solid fa-calendar-days', permission: 'timekeepingSheet::read' },
       { path: '/attendance-logs', label: 'Nhật ký chấm công', icon: 'fa-solid fa-list-check', permission: 'dailyTimekeeping::read' },
       { path: '/explanation-requests', label: 'Giải trình bù công', icon: 'fa-solid fa-file-pen' },
-      { path: '/ot-requests', label: 'Đăng ký làm thêm (OT)', icon: 'fa-solid fa-clock' }
+      { path: '/ot-requests', label: 'Đăng ký làm thêm (OT)', icon: 'fa-solid fa-clock' },
+      { path: '/leave-requests', label: 'Nghỉ phép thường niên', icon: 'fa-solid fa-calendar-xmark' }
     ]
   },
   {

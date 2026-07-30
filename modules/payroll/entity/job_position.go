@@ -25,6 +25,8 @@ type JobPosition struct {
 	IsBenchmark  bool       `db:"is_benchmark" json:"is_benchmark"`
 	MarketSalary float64    `db:"market_salary" json:"market_salary"`
 	SearchKeyword *string    `db:"search_keyword" json:"search_keyword"`
+	P2BaseAllowance float64 `db:"p2_base_allowance" json:"p2_base_allowance"`
+	P2Cap        float64    `db:"p2_cap" json:"p2_cap"`
 	entity.BaseEntity
 }
 type PaginatedJobPositionEntity = entity.Pagination[JobPosition]

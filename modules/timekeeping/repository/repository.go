@@ -32,4 +32,21 @@ type TimekeepingRepository interface {
 	GetFaceTemplates(ctx context.Context) ([]entity.EmployeeFaceTemplate, error)
 	GetFaceTemplateByCode(ctx context.Context, code string) (*entity.EmployeeFaceTemplate, error)
 	DeleteFaceTemplate(ctx context.Context, code string) error
+
+	// Leave Requests
+	CreateLeaveRequest(ctx context.Context, req *entity.LeaveRequest) error
+	GetLeaveRequestByID(ctx context.Context, id uuid.UUID) (*entity.LeaveRequest, error)
+	UpdateLeaveRequest(ctx context.Context, req *entity.LeaveRequest) error
+	GetLeaveRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID) ([]entity.LeaveRequest, error)
+	// GetApprovedLeavesForPeriod lấy tất cả leave đã APPROVED trong khoảng thời gian
+	// (dùng trong CalculateTimesheets để xác định ngày được phép nghỉ có lương).
+	GetApprovedLeavesForPeriod(ctx context.Context, start, end time.Time) ([]entity.LeaveRequest, error)
+
+	// Leave Balances
+	GetLeaveBalance(ctx context.Context, employeeID uuid.UUID, year int) (*entity.LeaveBalance, error)
+	UpsertLeaveBalance(ctx context.Context, balance *entity.LeaveBalance) error
+	GetAllLeaveBalancesForYear(ctx context.Context, year int) ([]entity.LeaveBalance, error)
+	// CountLeavePaidDaysInYear đếm số ngày LEAVE_PAID trong daily_attendance_sheets của nhân viên trong năm.
+	// Dùng để tính lại used_days sau CalculateTimesheets.
+	CountLeavePaidDaysInYear(ctx context.Context, employeeID uuid.UUID, year int) (float64, error)
 }

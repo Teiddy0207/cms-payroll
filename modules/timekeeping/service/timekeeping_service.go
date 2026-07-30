@@ -507,6 +507,7 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 
 	start := time.Date(startDay.Year(), startDay.Month(), startDay.Day(), 0, 0, 0, 0, time.UTC)
 	end := time.Date(endDay.Year(), endDay.Month(), endDay.Day(), 23, 59, 59, 0, time.UTC)
+	year := startDay.Year()
 
 	var profiles []payrollEntity.UserProfile
 	query := `SELECT id, code FROM user_profiles`
@@ -528,6 +529,35 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 	queryOT := `SELECT id, employee_id, date, hours_requested, is_night_ot, is_holiday_ot, status FROM ot_requests WHERE date >= $1 AND date <= $2 AND status = 'APPROVED'`
 	_ = s.payrollRepo.DB.SQLx().SelectContext(ctx, &ots, queryOT, startDay, endDay)
 
+	// --- Load approved leave requests cho kỳ tính công ---
+	approvedLeaves, _ := s.repo.GetApprovedLeavesForPeriod(ctx, startDay, endDay)
+
+	// leaveMap["employeeID:YYYY-MM-DD"] = days_this_date (0.5 hoặc 1.0)
+	// Mỗi leave request được mở rộng thành từng ngày riêng lẻ.
+	leaveMap := make(map[string]float64)
+	for _, lr := range approvedLeaves {
+		numCalendarDays := int(lr.EndDate.Sub(lr.StartDate).Hours()/24) + 1
+		daysPerDay := lr.DaysRequested / float64(numCalendarDays)
+		for d := lr.StartDate; !d.After(lr.EndDate); d = d.AddDate(0, 0, 1) {
+			if d.Before(startDay) || d.After(endDay) {
+				continue
+			}
+			lKey := fmt.Sprintf("%s:%s", lr.EmployeeID.String(), d.Format("2006-01-02"))
+			leaveMap[lKey] += daysPerDay
+		}
+	}
+
+	// Load leave balances để tính LEAVE_PAID vs LEAVE_UNPAID
+	// runningBalance[employeeID] = số phép còn lại (dùng để deduct theo thứ tự thời gian)
+	existingBalances, _ := s.repo.GetAllLeaveBalancesForYear(ctx, year)
+	runningBalance := make(map[uuid.UUID]float64)
+	for _, b := range existingBalances {
+		// Tính balance khả dụng = accrued - used_days đã ghi nhận TRƯỚC kỳ tính công này.
+		// Cách đơn giản nhất: dùng balance hiện tại từ DB (đã trừ used_days cũ).
+		// Sau khi CalculateTimesheets chạy xong, ta sẽ cập nhật lại used_days từ DB.
+		runningBalance[b.EmployeeID] = b.Balance
+	}
+
 	expMap := make(map[string]bool)
 	for _, e := range explanations {
 		key := fmt.Sprintf("%s:%s", e.EmployeeID.String(), e.Date.Format("2006-01-02"))
@@ -547,6 +577,9 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 		logsMap[key] = append(logsMap[key], l.Timestamp)
 	}
 
+	// Tập hợp các employeeID đã có LEAVE_PAID để cập nhật balance sau
+	affectedEmployees := make(map[uuid.UUID]bool)
+
 	for _, p := range profiles {
 		for d := startDay; !d.After(endDay); d = d.AddDate(0, 0, 1) {
 			dateStr := d.Format("2006-01-02")
@@ -560,8 +593,9 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 			}
 			sheet.ID = uuid.New()
 
-			expKey := fmt.Sprintf("%s:%s", p.ID.String(), dateStr)
-			hasApprovedExplanation := expMap[expKey]
+			empDateKey := fmt.Sprintf("%s:%s", p.ID.String(), dateStr)
+			hasApprovedExplanation := expMap[empDateKey]
+			leaveDays, hasLeave := leaveMap[empDateKey]
 
 			if len(userLogs) == 0 {
 				sheet.ActualWorkDay = 0.0
@@ -569,6 +603,12 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 				if hasApprovedExplanation {
 					sheet.ActualWorkDay = 1.0
 					sheet.Status = "NORMAL"
+				} else if hasLeave {
+					// Nhân viên vắng và có đơn nghỉ phép được duyệt
+					sheet = applyLeaveToSheet(sheet, leaveDays, p.ID, runningBalance)
+					if sheet.Status == "LEAVE_PAID" {
+						affectedEmployees[p.ID] = true
+					}
 				}
 			} else {
 				var checkIn, checkOut time.Time
@@ -582,10 +622,8 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 
 				checkInHour := checkIn.Hour()
 				checkInMin := checkIn.Minute()
-
 				inTimeVal := checkInHour*60 + checkInMin
-				limitInVal := 9 * 60 // 09:00 Grace Limit
-
+				limitInVal := 9 * 60 // 09:00
 				isLate := inTimeVal > limitInVal
 
 				if len(userLogs) < 2 {
@@ -594,14 +632,17 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 					if hasApprovedExplanation {
 						sheet.ActualWorkDay = 1.0
 						sheet.Status = "NORMAL"
+					} else if hasLeave {
+						sheet = applyLeaveToSheet(sheet, leaveDays, p.ID, runningBalance)
+						if sheet.Status == "LEAVE_PAID" {
+							affectedEmployees[p.ID] = true
+						}
 					}
 				} else {
 					checkOutHour := checkOut.Hour()
 					checkOutMin := checkOut.Minute()
 					outTimeVal := checkOutHour*60 + checkOutMin
-
-					isEarly := outTimeVal < (17*60 + 30) // Before 17:30
-
+					isEarly := outTimeVal < (17*60 + 30)
 					isHalfDay := outTimeVal >= (12*60) && outTimeVal <= (14*60)
 
 					if !isLate && !isEarly {
@@ -626,7 +667,8 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 						sheet.Status = "NORMAL"
 					}
 
-					if otReq, hasOT := otMap[expKey]; hasOT && outTimeVal > (17*60+30) {
+					otKey := fmt.Sprintf("%s:%s", p.ID.String(), dateStr)
+					if otReq, hasOT := otMap[otKey]; hasOT && outTimeVal > (17*60+30) {
 						diffSecs := checkOut.Sub(time.Date(checkOut.Year(), checkOut.Month(), checkOut.Day(), 17, 30, 0, 0, checkOut.Location())).Seconds()
 						diffHours := math.Max(0, diffSecs/3600.0)
 						sheet.OTHours = math.Min(diffHours, otReq.HoursRequested)
@@ -641,7 +683,53 @@ func (s *TimekeepingServiceImpl) CalculateTimesheets(ctx context.Context, req *d
 		}
 	}
 
+	// Cập nhật used_days trong leave_balances dựa trên thực tế từ daily_attendance_sheets
+	for empID := range affectedEmployees {
+		usedDays, err := s.repo.CountLeavePaidDaysInYear(ctx, empID, year)
+		if err != nil {
+			logger.Error("CountLeavePaidDaysInYear failed for employee %s: %v", empID, err)
+			continue
+		}
+		bal, err := s.repo.GetLeaveBalance(ctx, empID, year)
+		if err != nil || bal == nil {
+			continue
+		}
+		bal.UsedDays = usedDays
+		bal.Balance = bal.AccruedDays - usedDays
+		if bal.Balance < 0 {
+			bal.Balance = 0
+		}
+		_ = s.repo.UpsertLeaveBalance(ctx, bal)
+	}
+
 	return nil
+}
+
+// applyLeaveToSheet áp dụng phép nghỉ vào sheet:
+//   - Nếu còn số dư phép >= leaveDays → LEAVE_PAID, actual_work_day = leaveDays, trừ balance.
+//   - Nếu còn một phần → LEAVE_PAID với phần có phép, phần còn lại vẫn vắng (LEAVE_UNPAID).
+//   - Nếu hết phép → LEAVE_UNPAID, actual_work_day = 0.
+//
+// runningBalance được cập nhật in-place để theo dõi qua các ngày.
+func applyLeaveToSheet(sheet *entity.DailyAttendanceSheet, leaveDays float64, empID uuid.UUID, runningBalance map[uuid.UUID]float64) *entity.DailyAttendanceSheet {
+	balance := runningBalance[empID]
+	if balance <= 0 {
+		sheet.Status = "LEAVE_UNPAID"
+		sheet.ActualWorkDay = 0.0
+		return sheet
+	}
+	if balance >= leaveDays {
+		// Đủ phép cho toàn bộ ngày
+		sheet.Status = "LEAVE_PAID"
+		sheet.ActualWorkDay = leaveDays
+		runningBalance[empID] -= leaveDays
+	} else {
+		// Chỉ đủ phép cho một phần — dùng hết phép còn lại
+		sheet.Status = "LEAVE_PAID"
+		sheet.ActualWorkDay = balance
+		runningBalance[empID] = 0
+	}
+	return sheet
 }
 
 func (s *TimekeepingServiceImpl) CreateExplanationRequest(ctx context.Context, userID uuid.UUID, req *dto.CreateExplanationRequest) (*dto.ExplanationRequestResponse, *errors.AppError) {

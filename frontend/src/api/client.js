@@ -182,6 +182,23 @@ export const timekeepingAPI = {
     client.get('/private/timekeeping/faces'),
   deleteFace: (code) =>
     client.delete(`/private/timekeeping/faces/${code}`),
+
+  // ---- Leave (Nghỉ phép thường niên) ----
+  // Nhân viên tạo đơn xin nghỉ phép
+  createLeaveRequest: (data) =>
+    client.post('/private/timekeeping/leaves', data),
+  // Lấy danh sách đơn (role-based: admin thấy tất, nhân viên thấy của mình)
+  getLeaveRequests: () =>
+    client.get('/private/timekeeping/leaves'),
+  // Manager/Admin duyệt hoặc từ chối đơn
+  updateLeaveRequestStatus: (id, status) =>
+    client.put(`/private/timekeeping/leaves/${id}/status`, { status }),
+  // Xem số dư phép tồn của nhân viên hiện tại (?year=2026)
+  getLeaveBalance: (year) =>
+    client.get('/private/timekeeping/leaves/balance', { params: year ? { year } : {} }),
+  // Admin cộng phép đầu tháng (idempotent)
+  accrueLeave: (month, year) =>
+    client.post('/private/timekeeping/leaves/accrue', { month, year }),
 };
 
 // ===================== PDF TOOLS =====================

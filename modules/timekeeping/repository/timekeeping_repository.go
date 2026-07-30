@@ -438,3 +438,176 @@ func (r *TimekeepingRepositoryImpl) GetAttendanceLogsList(ctx context.Context, e
 
 	return list, totalItems, nil
 }
+
+// ==========================================
+// Leave Request Repository Methods
+// ==========================================
+
+func (r *TimekeepingRepositoryImpl) CreateLeaveRequest(ctx context.Context, req *entity.LeaveRequest) error {
+	query := `
+		INSERT INTO leave_requests (id, employee_id, start_date, end_date, days_requested, reason, approved_by, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+	`
+	_, err := r.DB.SQLx().ExecContext(ctx, query,
+		req.ID, req.EmployeeID, req.StartDate, req.EndDate,
+		req.DaysRequested, req.Reason, req.ApprovedBy, req.Status)
+	return err
+}
+
+func (r *TimekeepingRepositoryImpl) GetLeaveRequestByID(ctx context.Context, id uuid.UUID) (*entity.LeaveRequest, error) {
+	var req entity.LeaveRequest
+	query := `
+		SELECT id, employee_id, start_date, end_date, days_requested, reason, approved_by, status, created_at, updated_at
+		FROM leave_requests
+		WHERE id = $1
+	`
+	err := r.DB.SQLx().GetContext(ctx, &req, query, id)
+	if err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
+func (r *TimekeepingRepositoryImpl) UpdateLeaveRequest(ctx context.Context, req *entity.LeaveRequest) error {
+	query := `
+		UPDATE leave_requests
+		SET approved_by = $2, status = $3, updated_at = NOW()
+		WHERE id = $1
+	`
+	_, err := r.DB.SQLx().ExecContext(ctx, query, req.ID, req.ApprovedBy, req.Status)
+	return err
+}
+
+func (r *TimekeepingRepositoryImpl) GetLeaveRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID) ([]entity.LeaveRequest, error) {
+	var list []entity.LeaveRequest
+	var err error
+
+	if employeeID != nil {
+		query := `
+			SELECT id, employee_id, start_date, end_date, days_requested, reason, approved_by, status, created_at, updated_at
+			FROM leave_requests
+			WHERE employee_id = $1
+			ORDER BY start_date DESC
+		`
+		err = r.DB.SQLx().SelectContext(ctx, &list, query, *employeeID)
+	} else if departmentID != nil {
+		query := `
+			SELECT lr.id, lr.employee_id, lr.start_date, lr.end_date, lr.days_requested, lr.reason, lr.approved_by, lr.status, lr.created_at, lr.updated_at
+			FROM leave_requests lr
+			JOIN user_profiles u ON lr.employee_id = u.id
+			WHERE u.department_id = $1
+			ORDER BY lr.start_date DESC
+		`
+		err = r.DB.SQLx().SelectContext(ctx, &list, query, *departmentID)
+	} else {
+		query := `
+			SELECT id, employee_id, start_date, end_date, days_requested, reason, approved_by, status, created_at, updated_at
+			FROM leave_requests
+			ORDER BY start_date DESC
+		`
+		err = r.DB.SQLx().SelectContext(ctx, &list, query)
+	}
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []entity.LeaveRequest{}, nil
+		}
+		return nil, err
+	}
+	return list, nil
+}
+
+// GetApprovedLeavesForPeriod lấy tất cả leave_requests đã APPROVED có ngày nghỉ giao với [start, end].
+// Dùng trong CalculateTimesheets để map từng ngày nghỉ có phép.
+func (r *TimekeepingRepositoryImpl) GetApprovedLeavesForPeriod(ctx context.Context, start, end time.Time) ([]entity.LeaveRequest, error) {
+	var list []entity.LeaveRequest
+	query := `
+		SELECT id, employee_id, start_date, end_date, days_requested, reason, approved_by, status, created_at, updated_at
+		FROM leave_requests
+		WHERE status = 'APPROVED'
+		  AND start_date <= $2
+		  AND end_date >= $1
+		ORDER BY employee_id, start_date ASC
+	`
+	err := r.DB.SQLx().SelectContext(ctx, &list, query, start, end)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []entity.LeaveRequest{}, nil
+		}
+		return nil, err
+	}
+	return list, nil
+}
+
+// ==========================================
+// Leave Balance Repository Methods
+// ==========================================
+
+func (r *TimekeepingRepositoryImpl) GetLeaveBalance(ctx context.Context, employeeID uuid.UUID, year int) (*entity.LeaveBalance, error) {
+	var balance entity.LeaveBalance
+	query := `
+		SELECT id, employee_id, year, accrued_days, used_days, balance, last_accrual_month, created_at, updated_at
+		FROM leave_balances
+		WHERE employee_id = $1 AND year = $2
+	`
+	err := r.DB.SQLx().GetContext(ctx, &balance, query, employeeID, year)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &balance, nil
+}
+
+// UpsertLeaveBalance tạo mới hoặc cập nhật bản ghi leave_balances.
+func (r *TimekeepingRepositoryImpl) UpsertLeaveBalance(ctx context.Context, b *entity.LeaveBalance) error {
+	query := `
+		INSERT INTO leave_balances (id, employee_id, year, accrued_days, used_days, balance, last_accrual_month, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+		ON CONFLICT (employee_id, year) DO UPDATE SET
+			accrued_days       = EXCLUDED.accrued_days,
+			used_days          = EXCLUDED.used_days,
+			balance            = EXCLUDED.balance,
+			last_accrual_month = EXCLUDED.last_accrual_month,
+			updated_at         = NOW()
+	`
+	_, err := r.DB.SQLx().ExecContext(ctx, query,
+		b.ID, b.EmployeeID, b.Year, b.AccruedDays, b.UsedDays, b.Balance, b.LastAccrualMonth)
+	return err
+}
+
+func (r *TimekeepingRepositoryImpl) GetAllLeaveBalancesForYear(ctx context.Context, year int) ([]entity.LeaveBalance, error) {
+	var list []entity.LeaveBalance
+	query := `
+		SELECT id, employee_id, year, accrued_days, used_days, balance, last_accrual_month, created_at, updated_at
+		FROM leave_balances
+		WHERE year = $1
+	`
+	err := r.DB.SQLx().SelectContext(ctx, &list, query, year)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []entity.LeaveBalance{}, nil
+		}
+		return nil, err
+	}
+	return list, nil
+}
+
+// CountLeavePaidDaysInYear đếm tổng actual_work_day của những ngày có status = LEAVE_PAID trong năm.
+// Hỗ trợ nửa ngày (actual_work_day = 0.5).
+func (r *TimekeepingRepositoryImpl) CountLeavePaidDaysInYear(ctx context.Context, employeeID uuid.UUID, year int) (float64, error) {
+	var total float64
+	query := `
+		SELECT COALESCE(SUM(actual_work_day), 0)
+		FROM daily_attendance_sheets
+		WHERE employee_id = $1
+		  AND EXTRACT(YEAR FROM date) = $2
+		  AND status = 'LEAVE_PAID'
+	`
+	err := r.DB.SQLx().GetContext(ctx, &total, query, employeeID, year)
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
+}

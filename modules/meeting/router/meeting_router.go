@@ -21,7 +21,9 @@ func RegisterMeetingRoutes(g *echo.Group, ctrl *controller.MeetingController, au
 	meetingGroup.POST("/", ctrl.CreateMeeting)
 	meetingGroup.POST("/:id/rsvp", ctrl.UpdateRSVP)
 	meetingGroup.PUT("/:id", ctrl.UpdateMeeting)
+	meetingGroup.POST("/:id/complete", ctrl.CompleteMeeting) // kết thúc họp + AI summarize
 	meetingGroup.POST("/:id/summary", ctrl.SaveSummary)
 	meetingGroup.GET("/:id/summary", ctrl.GetSummary)
 	meetingGroup.GET("/:id", ctrl.GetMeetingByID)
 }
+

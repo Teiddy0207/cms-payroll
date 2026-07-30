@@ -1,14 +1,17 @@
 package service
 
 import (
+	"cal-salary/core/database"
 	"cal-salary/core/errors"
 	"cal-salary/core/logger"
 	"cal-salary/core/params"
 	"cal-salary/modules/payroll/dto"
 	"cal-salary/modules/payroll/entity"
 	"cal-salary/modules/payroll/mapper"
+	"cal-salary/modules/payroll/repository"
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -109,8 +112,10 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 		p1Total = activeContract.PositionBaseRate
 	}
 
+	var pos *entity.JobPosition
 	if profile.PositionID != nil {
-		pos, err := s.repo.GetJobPositionByID(ctx, *profile.PositionID)
+		var err error
+		pos, err = s.repo.GetJobPositionByID(ctx, *profile.PositionID)
 		if err != nil {
 			logger.Error("PreviewSalary:GetJobPositionByID:Error %v", err)
 			return nil, errors.NewAppError(errors.ErrInternalServer, "failed to fetch job position", err)
@@ -149,9 +154,17 @@ func (s *PayrollService) PreviewSalary(ctx context.Context, employeeID uuid.UUID
 
 	// 5. Tính tiền
 	p2Total := p2Score
+	isCapped := false
+	if pos != nil && pos.P2Cap > 0 && p2Total > pos.P2Cap {
+		p2Total = pos.P2Cap
+		isCapped = true
+	}
 	subtotal := p1Total + p2Total
 
 	note := fmt.Sprintf("P1 từ dải lương vị trí và hợp đồng, P2 từ phụ cấp năng lực cá nhân nhân viên %s.", profile.FullName)
+	if isCapped {
+		note += fmt.Sprintf(" (P2 đã được áp dụng mức trần %v của vị trí %s)", pos.P2Cap, pos.Name)
+	}
 
 	breakdown := map[string]any{
 		"Tổng điểm P1 (tiêu chuẩn vị trí)": p1Score,
@@ -351,8 +364,70 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 		return err
 	}
 
-	p1 := preview.P1Total
-	p2 := preview.P2Total
+	var startDay, endDay time.Time
+	if t, errParse := time.Parse("2006-01", period); errParse == nil {
+		startDay = t
+		endDay = t.AddDate(0, 1, -1)
+	} else {
+		startDay = time.Now().AddDate(0, 0, -30)
+		endDay = time.Now()
+	}
+
+	var db *database.Database
+	if repoConcrete, ok := s.repo.(*repository.PayrollRepository); ok {
+		db = &repoConcrete.DB
+	}
+
+	// 1. Query actual work days and OT hours from daily_attendance_sheets
+	var actualWorkDays float64
+	var otHours float64
+	if db != nil {
+		queryAtt := `
+			SELECT COALESCE(SUM(actual_work_day), 0) as actual, COALESCE(SUM(ot_hours), 0) as ot
+			FROM daily_attendance_sheets
+			WHERE employee_id = $1 AND date >= $2 AND date <= $3
+		`
+		var resultAtt struct {
+			Actual float64 `db:"actual"`
+			Ot     float64 `db:"ot"`
+		}
+		errQuery := db.SQLx().GetContext(ctx, &resultAtt, queryAtt, profile.ID, startDay, endDay)
+		if errQuery == nil {
+			actualWorkDays = resultAtt.Actual
+			otHours = resultAtt.Ot
+		} else {
+			logger.Error("calculateAndSaveEmployee: failed to query attendance sheets: %v", errQuery)
+		}
+	}
+
+	// 2. Query standard work days from system_settings
+	standardWorkDays := 22.0
+	if db != nil {
+		var settingVal string
+		errSetting := db.SQLx().GetContext(ctx, &settingVal, `SELECT value FROM system_settings WHERE key = 'standard_work_days'`)
+		if errSetting == nil && settingVal != "" {
+			var parsed float64
+			if _, errScan := fmt.Sscanf(settingVal, "%f", &parsed); errScan == nil && parsed > 0 {
+				standardWorkDays = parsed
+			}
+		}
+	}
+
+	// 3. Calculate work ratio
+	workRatio := 1.0
+	if standardWorkDays > 0 {
+		workRatio = actualWorkDays / standardWorkDays
+		if workRatio > 1.0 {
+			workRatio = 1.0
+		}
+	}
+
+	// Pro-rate position base P1 and competency P2 by work ratio
+	p1Base := preview.P1Total
+	p2Base := preview.P2Total
+
+	p1 := p1Base * workRatio
+	p2 := p2Base * workRatio
 	p3 := 0.0
 
 	gross := p1 + p2 + p3
@@ -360,18 +435,26 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 	net := gross - tax
 
 	env := map[string]interface{}{
-		"P1":           p1,
-		"p1":           p1,
-		"P2":           p2,
-		"p2":           p2,
-		"P3":           p3,
-		"p3":           p3,
-		"GROSS_SALARY": gross,
-		"gross_salary": gross,
-		"TAX":          tax,
-		"tax":          tax,
-		"NET_SALARY":   net,
-		"net_salary":   net,
+		"P1":                 p1,
+		"p1":                 p1,
+		"P2":                 p2,
+		"p2":                 p2,
+		"P3":                 p3,
+		"p3":                 p3,
+		"GROSS_SALARY":       gross,
+		"gross_salary":       gross,
+		"TAX":                tax,
+		"tax":                tax,
+		"NET_SALARY":         net,
+		"net_salary":         net,
+		"ACTUAL_WORK_DAYS":   actualWorkDays,
+		"actual_work_days":   actualWorkDays,
+		"STANDARD_WORK_DAYS": standardWorkDays,
+		"standard_work_days": standardWorkDays,
+		"OT_HOURS":           otHours,
+		"ot_hours":           otHours,
+		"WORK_RATIO":         workRatio,
+		"work_ratio":         workRatio,
 	}
 
 	hasGrossFormula := false
@@ -388,9 +471,14 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 	}
 
 	details := []entity.PayrollRecordDetail{
-		{Component: "P1", Description: "Lương vị trí P1", Source: "POSITION", Amount: p1},
-		{Component: "P2", Description: "Lương năng lực P2", Source: "PERSONAL", Amount: p2},
+		{Component: "P1_BASE", Description: fmt.Sprintf("Lương vị trí gốc (HĐ): %v/tháng", p1Base), Source: "POSITION", Amount: p1Base},
+		{Component: "P1", Description: fmt.Sprintf("Lương vị trí thực nhận (%v/%v ngày công)", actualWorkDays, standardWorkDays), Source: "POSITION", Amount: p1},
+		{Component: "P2_BASE", Description: fmt.Sprintf("Lương năng lực gốc (Đạt): %v/tháng", p2Base), Source: "PERSONAL", Amount: p2Base},
+		{Component: "P2", Description: fmt.Sprintf("Lương năng lực thực nhận (Tỷ lệ công: %v%%)", math.Round(workRatio*10000)/100), Source: "PERSONAL", Amount: p2},
 		{Component: "P3", Description: "Lương hiệu quả P3", Source: "FORMULA", Amount: p3},
+		{Component: "ACTUAL_WORK_DAYS", Description: "Số ngày công thực tế đi làm", Source: "ATTENDANCE", Amount: actualWorkDays},
+		{Component: "STANDARD_WORK_DAYS", Description: "Số ngày công chuẩn của tháng", Source: "ATTENDANCE", Amount: standardWorkDays},
+		{Component: "OT_HOURS", Description: "Số giờ làm thêm ngoài giờ (OT)", Source: "ATTENDANCE", Amount: otHours},
 	}
 
 	for _, f := range sortedFormulas {
@@ -489,6 +577,42 @@ func (s *PayrollService) calculateAndSaveEmployee(ctx context.Context, periodID 
 		entity.PayrollRecordDetail{Component: "TAX", Description: "Thuế thu nhập cá nhân", Source: "FORMULA", Amount: tax},
 		entity.PayrollRecordDetail{Component: "NET", Description: "Thực nhận", Source: "FORMULA", Amount: net},
 	)
+
+	// 4. Validate P1 salary range and insert anomaly if out of bounds
+	if db != nil && profile.PositionID != nil {
+		pos, errPos := s.repo.GetJobPositionByID(ctx, *profile.PositionID)
+		if errPos == nil && pos != nil && pos.MinSalary > 0 && pos.MaxSalary > 0 {
+			if p1Base < pos.MinSalary || p1Base > pos.MaxSalary {
+				// Base rate is out of bounds
+				anomalyID := uuid.New()
+				var deviation float64
+				var explanation string
+				if p1Base < pos.MinSalary {
+					deviation = pos.MinSalary - p1Base
+					explanation = fmt.Sprintf("Lương vị trí gốc của hợp đồng (%v) thấp hơn mức tối thiểu dải lương (%v) cho vị trí %s (%s)", p1Base, pos.MinSalary, pos.Name, pos.Code)
+				} else {
+					deviation = p1Base - pos.MaxSalary
+					explanation = fmt.Sprintf("Lương vị trí gốc của hợp đồng (%v) cao hơn mức tối đa dải lương (%v) cho vị trí %s (%s)", p1Base, pos.MaxSalary, pos.Name, pos.Code)
+				}
+
+				// Insert anomaly
+				queryAnom := `
+					INSERT INTO ai_anomalies (id, record_id, metric_flagged, deviation_value, ai_explanation, status, created_at, updated_at)
+					VALUES ($1, $2, $3, $4, $5, 'PENDING', NOW(), NOW())
+					ON CONFLICT DO NOTHING
+				`
+				_, _ = db.SQLx().ExecContext(ctx, queryAnom, anomalyID, record.ID, "P1_RANGE", deviation, explanation)
+
+				// Prepend warning label to P1 detail description
+				for i := range details {
+					if details[i].Component == "P1" {
+						details[i].Description = "[CẢNH BÁO VƯỢT KHUNG] " + details[i].Description
+						break
+					}
+				}
+			}
+		}
+	}
 
 	return s.repo.UpsertPayrollRecord(ctx, record, details)
 }

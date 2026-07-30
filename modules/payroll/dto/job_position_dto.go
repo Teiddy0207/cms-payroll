@@ -26,6 +26,8 @@ type CreateJobPositionRequest struct {
 	IsBenchmark  bool       `json:"is_benchmark"`
 	MarketSalary float64    `json:"market_salary"`
 	SearchKeyword string     `json:"search_keyword"`
+	P2BaseAllowance float64 `json:"p2_base_allowance"`
+	P2Cap        float64    `json:"p2_cap"`
 }
 
 type UpdateJobPositionRequest struct {
@@ -42,6 +44,8 @@ type UpdateJobPositionRequest struct {
 	IsBenchmark  bool       `json:"is_benchmark"`
 	MarketSalary float64    `json:"market_salary"`
 	SearchKeyword string     `json:"search_keyword"`
+	P2BaseAllowance float64 `json:"p2_base_allowance"`
+	P2Cap        float64    `json:"p2_cap"`
 }
 
 type JobPositionResponse struct {
@@ -64,6 +68,8 @@ type JobPositionResponse struct {
 	IsBenchmark  bool       `json:"is_benchmark"`
 	MarketSalary float64    `json:"market_salary"`
 	SearchKeyword string     `json:"search_keyword"`
+	P2BaseAllowance float64 `json:"p2_base_allowance"`
+	P2Cap        float64    `json:"p2_cap"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }

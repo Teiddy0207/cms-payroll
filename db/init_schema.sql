@@ -405,7 +405,8 @@ CREATE TABLE IF NOT EXISTS system_settings (
 
 INSERT INTO system_settings (key, value, description)
 VALUES 
-('payroll_k_factor', '4000000', 'Hệ số quy đổi lương P1 (K factor) VND/điểm')
+('payroll_k_factor', '4000000', 'Hệ số quy đổi lương P1 (K factor) VND/điểm'),
+('standard_work_days', '22', 'Số ngày công chuẩn trong tháng')
 ON CONFLICT (key) DO NOTHING;
 
 -- Ensure existing database has the P1 range columns
@@ -453,4 +454,33 @@ CREATE TABLE IF NOT EXISTS meeting_attendees (
     UNIQUE(meeting_id, user_id)
 );
 
+-- 32. Leave Requests (Đơn xin nghỉ phép thường niên)
+CREATE TABLE IF NOT EXISTS leave_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    days_requested DECIMAL(5,1) NOT NULL,  -- Số ngày xin nghỉ (hỗ trợ 0.5 ngày)
+    reason TEXT,
+    approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- PENDING, APPROVED, REJECTED
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
 
+-- 33. Leave Balances (Số dư phép của nhân viên theo năm)
+-- accrued_days: Tổng phép đã tích lũy (max 12/năm, +1 mỗi đầu tháng)
+-- used_days:    Tổng phép đã dùng (tính từ LEAVE_PAID trong daily_attendance_sheets)
+-- balance:      Còn lại = accrued_days - used_days
+CREATE TABLE IF NOT EXISTS leave_balances (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    year INTEGER NOT NULL,
+    accrued_days DECIMAL(5,1) NOT NULL DEFAULT 0.0,
+    used_days DECIMAL(5,1) NOT NULL DEFAULT 0.0,
+    balance DECIMAL(5,1) NOT NULL DEFAULT 0.0,
+    last_accrual_month INTEGER,  -- Tháng accrual gần nhất (1-12), tránh double-accrual
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (employee_id, year)
+);

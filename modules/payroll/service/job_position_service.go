@@ -94,6 +94,8 @@ func (s *PayrollService) UpdateJobPosition(ctx context.Context, id uuid.UUID, re
 		IsBenchmark:  req.IsBenchmark,
 		MarketSalary: req.MarketSalary,
 		SearchKeyword: searchKw,
+		P2BaseAllowance: req.P2BaseAllowance,
+		P2Cap:        req.P2Cap,
 	}
 	s.calculateP1SalaryRange(ctx, pos)
 

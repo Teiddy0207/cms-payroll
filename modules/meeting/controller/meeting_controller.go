@@ -278,3 +278,51 @@ func (c *MeetingController) GetSummary(ctx echo.Context) error {
 
 	return ctx.JSON(http.StatusOK, map[string]interface{}{"status": "success", "data": summary})
 }
+
+// CompleteMeeting nhận file audio upload, gọi AI service tóm tắt,
+// cập nhật meeting status → COMPLETED và lưu summary vào DB.
+//
+// Route  : POST /meetings/:id/complete
+// Header : Content-Type: multipart/form-data
+// Body   : audio=<file> (.wav/.mp3/.m4a)
+func (c *MeetingController) CompleteMeeting(ctx echo.Context) error {
+	idStr := ctx.Param("id")
+	meetingID, err := uuid.Parse(idStr)
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid meeting id"})
+	}
+
+	_, ok := getUserID(ctx)
+	if !ok {
+		return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+	}
+
+	// Đọc file audio từ multipart form
+	file, err := ctx.FormFile("audio")
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "thiếu file audio (field: 'audio')"})
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": "không thể đọc file audio"})
+	}
+	defer src.Close()
+
+	audioBytes := make([]byte, file.Size)
+	if _, err = src.Read(audioBytes); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": "không thể đọc nội dung file"})
+	}
+
+	// Gọi service: complete meeting + AI summarization
+	summary, appErr := c.svc.CompleteMeeting(ctx.Request().Context(), meetingID, audioBytes, file.Filename)
+	if appErr != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": appErr.Message})
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]interface{}{
+		"status":  "success",
+		"message": "Cuộc họp đã kết thúc và đang được tóm tắt",
+		"data":    summary,
+	})
+}

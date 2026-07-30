@@ -26,6 +26,8 @@ func ToJobPositionEntity(req *dto.CreateJobPositionRequest) *entity.JobPosition 
 		IsBenchmark:  req.IsBenchmark,
 		MarketSalary: req.MarketSalary,
 		SearchKeyword: searchKw,
+		P2BaseAllowance: req.P2BaseAllowance,
+		P2Cap:        req.P2Cap,
 	}
 }
 
@@ -54,6 +56,8 @@ func ToJobPositionDTO(pos *entity.JobPosition) *dto.JobPositionResponse {
 		IsBenchmark:  pos.IsBenchmark,
 		MarketSalary: pos.MarketSalary,
 		SearchKeyword: searchKw,
+		P2BaseAllowance: pos.P2BaseAllowance,
+		P2Cap:        pos.P2Cap,
 		CreatedAt:    pos.CreatedAt,
 		UpdatedAt:    pos.UpdatedAt,
 	}

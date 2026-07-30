@@ -14,6 +14,7 @@ type MeetingRepositoryInterface interface {
 	GetMeetingsByUserID(ctx context.Context, userID uuid.UUID) ([]entity.Meeting, error)
 	UpdateRSVPStatus(ctx context.Context, meetingID, userID uuid.UUID, status entity.RSVPStatus, note string) error
 	UpdateMeeting(ctx context.Context, meeting *entity.Meeting) error
+	UpdateMeetingStatus(ctx context.Context, meetingID uuid.UUID, status entity.MeetingStatus) error
 	GetUserProfileNameByUserID(ctx context.Context, userID uuid.UUID) (string, error)
 	GetUserIDFromProfileOrUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	SaveMeetingSummary(ctx context.Context, summary *entity.MeetingSummary) error
@@ -124,6 +125,11 @@ func (r *MeetingRepository) UpdateMeeting(ctx context.Context, meeting *entity.M
 		WHERE id = $6
 	`
 	return r.db.ExecContext(ctx, query, meeting.Title, meeting.Description, meeting.StartTime, meeting.EndTime, meeting.Status, meeting.ID)
+}
+
+func (r *MeetingRepository) UpdateMeetingStatus(ctx context.Context, meetingID uuid.UUID, status entity.MeetingStatus) error {
+	query := `UPDATE meetings SET status = $1, updated_at = NOW() WHERE id = $2`
+	return r.db.ExecContext(ctx, query, status, meetingID)
 }
 
 func (r *MeetingRepository) GetUserProfileNameByUserID(ctx context.Context, userID uuid.UUID) (string, error) {

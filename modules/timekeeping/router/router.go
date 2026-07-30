@@ -43,4 +43,11 @@ func (r *TimekeepingRouter) Setup(e *echo.Echo, middlewareInstance *middleware.M
 	timekeepingRoutes.POST("/faces", r.TimekeepingController.RegisterFaceTemplate, middlewareInstance.PermissionMiddleware("dailyTimekeeping::edit"))
 	timekeepingRoutes.GET("/faces", r.TimekeepingController.GetFaceTemplates, middlewareInstance.PermissionMiddleware("dailyTimekeeping::read"))
 	timekeepingRoutes.DELETE("/faces/:code", r.TimekeepingController.DeleteFaceTemplate, middlewareInstance.PermissionMiddleware("dailyTimekeeping::delete"))
+
+	// Leave Management (Nghỉ phép thường niên)
+	timekeepingRoutes.POST("/leaves", r.TimekeepingController.CreateLeaveRequest)                                                                                    // Nhân viên tự tạo đơn
+	timekeepingRoutes.GET("/leaves", r.TimekeepingController.GetLeaveRequests, middlewareInstance.PermissionMiddleware("dailyTimekeeping::read"))                     // Admin/Manager/Employee xem
+	timekeepingRoutes.PUT("/leaves/:id/status", r.TimekeepingController.UpdateLeaveRequestStatus, middlewareInstance.PermissionMiddleware("dailyTimekeeping::review")) // Manager/Admin duyệt
+	timekeepingRoutes.GET("/leaves/balance", r.TimekeepingController.GetLeaveBalance)                                                                                  // Nhân viên xem phép tồn
+	timekeepingRoutes.POST("/leaves/accrue", r.TimekeepingController.AccrueLeave, middlewareInstance.PermissionMiddleware("timekeepingSheet::edit"))                   // Admin cộng phép đầu tháng
 }

@@ -280,3 +280,114 @@ func (ctrl *TimekeepingController) DeleteFaceTemplate(c echo.Context) error {
 	}
 	return ctrl.SuccessResponse(c, nil, "Xóa dữ liệu khuôn mặt thành công")
 }
+
+// ==========================================
+// Leave Management Handlers
+// ==========================================
+
+// CreateLeaveRequest nhân viên gửi đơn xin nghỉ phép.
+func (ctrl *TimekeepingController) CreateLeaveRequest(c echo.Context) error {
+	ctx := c.Request().Context()
+	claims, err := ctrl.getUserClaims(c)
+	if err != nil {
+		return ctrl.Unauthorized(errors.ErrUnauthorized, "Yêu cầu đăng nhập", nil)
+	}
+
+	req := new(dto.CreateLeaveRequest)
+	if err := c.Bind(req); err != nil {
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Dữ liệu đơn nghỉ phép không hợp lệ", nil)
+	}
+
+	resp, appErr := ctrl.Service.CreateLeaveRequest(ctx, claims.UserID, req)
+	if appErr != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"code": appErr.Code, "message": appErr.Message})
+	}
+	return ctrl.SuccessResponse(c, resp, "Tạo đơn xin nghỉ phép thành công")
+}
+
+// GetLeaveRequests lấy danh sách đơn nghỉ phép (lọc theo role).
+func (ctrl *TimekeepingController) GetLeaveRequests(c echo.Context) error {
+	ctx := c.Request().Context()
+	claims, err := ctrl.getUserClaims(c)
+	if err != nil {
+		return ctrl.Unauthorized(errors.ErrUnauthorized, "Yêu cầu đăng nhập", nil)
+	}
+
+	resp, appErr := ctrl.Service.GetLeaveRequests(ctx, claims.UserID)
+	if appErr != nil {
+		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
+	}
+	return ctrl.SuccessResponse(c, resp, "Tải danh sách đơn nghỉ phép thành công")
+}
+
+// UpdateLeaveRequestStatus manager/admin duyệt hoặc từ chối đơn nghỉ phép.
+func (ctrl *TimekeepingController) UpdateLeaveRequestStatus(c echo.Context) error {
+	ctx := c.Request().Context()
+	claims, err := ctrl.getUserClaims(c)
+	if err != nil {
+		return ctrl.Unauthorized(errors.ErrUnauthorized, "Yêu cầu đăng nhập", nil)
+	}
+
+	idStr := c.Param("id")
+	id, errParse := uuid.Parse(idStr)
+	if errParse != nil {
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "ID đơn không hợp lệ", nil)
+	}
+
+	req := new(dto.UpdateRequestStatus)
+	if err := c.Bind(req); err != nil {
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Dữ liệu trạng thái không hợp lệ", nil)
+	}
+
+	appErr := ctrl.Service.UpdateLeaveRequestStatus(ctx, claims.UserID, id, req)
+	if appErr != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"code": appErr.Code, "message": appErr.Message})
+	}
+	return ctrl.SuccessResponse(c, nil, "Cập nhật trạng thái đơn nghỉ phép thành công")
+}
+
+// GetLeaveBalance lấy số dư phép của nhân viên đang đăng nhập trong năm hiện tại (hoặc năm chỉ định).
+func (ctrl *TimekeepingController) GetLeaveBalance(c echo.Context) error {
+	ctx := c.Request().Context()
+	claims, err := ctrl.getUserClaims(c)
+	if err != nil {
+		return ctrl.Unauthorized(errors.ErrUnauthorized, "Yêu cầu đăng nhập", nil)
+	}
+
+	year := time.Now().Year()
+	if yearStr := c.QueryParam("year"); yearStr != "" {
+		if parsed, e := fmt.Sscanf(yearStr, "%d", &year); parsed == 0 || e != nil {
+			return ctrl.BadRequest(errors.ErrInvalidRequestData, "Năm không hợp lệ", nil)
+		}
+	}
+
+	resp, appErr := ctrl.Service.GetLeaveBalance(ctx, claims.UserID, year)
+	if appErr != nil {
+		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
+	}
+	return ctrl.SuccessResponse(c, resp, "Tải số dư phép thành công")
+}
+
+// AccrueLeave admin gọi thủ công để cộng phép đầu tháng cho toàn bộ nhân viên.
+func (ctrl *TimekeepingController) AccrueLeave(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	req := new(dto.AccrueLeaveRequest)
+	if err := c.Bind(req); err != nil {
+		return ctrl.BadRequest(errors.ErrInvalidRequestData, "Dữ liệu không hợp lệ", nil)
+	}
+
+	// Nếu client không truyền month/year, dùng tháng/năm hiện tại
+	if req.Month == 0 {
+		req.Month = int(time.Now().Month())
+	}
+	if req.Year == 0 {
+		req.Year = time.Now().Year()
+	}
+
+	resp, appErr := ctrl.Service.AccrueLeaveForMonth(ctx, req)
+	if appErr != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"code": appErr.Code, "message": appErr.Message})
+	}
+	return ctrl.SuccessResponse(c, resp, resp.Message)
+}

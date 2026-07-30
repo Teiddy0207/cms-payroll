@@ -18,6 +18,7 @@ import TimesheetsPage from './pages/TimesheetsPage.jsx';
 import AttendanceLogsPage from './pages/AttendanceLogsPage.jsx';
 import ExplanationRequestsPage from './pages/ExplanationRequestsPage.jsx';
 import OTRequestsPage from './pages/OTRequestsPage.jsx';
+import LeaveRequestsPage from './pages/LeaveRequestsPage.jsx';
 import RolesPermissionsPage from './pages/RolesPermissionsPage.jsx';
 import Meetings from './pages/Meetings.jsx';
 import VideoMeetingRoom from './pages/VideoMeetingRoom.jsx';
@@ -70,6 +71,7 @@ function App() {
                 <Route path="attendance-logs" element={<AttendanceLogsPage />} />
                 <Route path="explanation-requests" element={<ExplanationRequestsPage />} />
                 <Route path="ot-requests" element={<OTRequestsPage />} />
+                <Route path="leave-requests" element={<LeaveRequestsPage />} />
                 <Route path="contracts" element={<ContractsPage />} />
                 <Route path="departments" element={<DepartmentsPage />} />
                 <Route path="job-positions" element={<JobPositionsPage />} />
