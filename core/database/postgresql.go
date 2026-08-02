@@ -79,6 +79,21 @@ func runSchemaInit(db *Database) error {
 		PRIMARY KEY (user_profile_id, competency_id)
 	);`)
 
+	_, _ = db.sqlx.Exec(`CREATE TABLE IF NOT EXISTS meeting_summaries (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		meeting_id UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+		summary TEXT,
+		key_decisions TEXT,
+		action_items TEXT,
+		efficiency_score VARCHAR(50),
+		sentiment VARCHAR(50),
+		created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+		CONSTRAINT meeting_summaries_meeting_id_key UNIQUE (meeting_id)
+	);`)
+	_, _ = db.sqlx.Exec("ALTER TABLE meeting_summaries ALTER COLUMN key_decisions TYPE TEXT USING key_decisions::text;")
+	_, _ = db.sqlx.Exec("ALTER TABLE meeting_summaries ALTER COLUMN action_items TYPE TEXT USING action_items::text;")
+
 	_, _ = db.sqlx.Exec("ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS p2_base_allowance DECIMAL(15, 2) NOT NULL DEFAULT 0.00;")
 	_, _ = db.sqlx.Exec("ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS p2_cap DECIMAL(15, 2) NOT NULL DEFAULT 0.00;")
 	_, _ = db.sqlx.Exec("UPDATE users SET password = '$2a$10$1G9Y7UIa9SJIwA0SxLgu7.3YkVKaQ/HtCATAAGfxCLzuO5wADcmzq' WHERE username = 'admin';")

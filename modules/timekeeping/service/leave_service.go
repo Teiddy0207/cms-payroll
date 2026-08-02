@@ -3,6 +3,7 @@ package service
 import (
 	"cal-salary/core/errors"
 	"cal-salary/core/logger"
+	"cal-salary/core/params"
 	"cal-salary/modules/timekeeping/dto"
 	"cal-salary/modules/timekeeping/entity"
 	payrollEntity "cal-salary/modules/payroll/entity"
@@ -75,11 +76,7 @@ func (s *TimekeepingServiceImpl) CreateLeaveRequest(ctx context.Context, userID 
 	}, nil
 }
 
-// GetLeaveRequests lấy danh sách đơn nghỉ phép, lọc theo role:
-//   - Admin/Director: thấy tất cả
-//   - Manager: thấy nhân viên trong phòng ban
-//   - Employee: chỉ thấy của mình
-func (s *TimekeepingServiceImpl) GetLeaveRequests(ctx context.Context, userID uuid.UUID) ([]dto.LeaveRequestResponse, *errors.AppError) {
+func (s *TimekeepingServiceImpl) GetLeaveRequests(ctx context.Context, userID uuid.UUID, qp params.QueryParams) (*dto.PaginatedLeaveRequestsResponse, *errors.AppError) {
 	role, _ := s.getUserRole(ctx, userID)
 	roleUpper := strings.ToUpper(role)
 	isAdmin := roleUpper == "ADMIN" || roleUpper == "DIRECTOR"
@@ -103,7 +100,7 @@ func (s *TimekeepingServiceImpl) GetLeaveRequests(ctx context.Context, userID uu
 		}
 	}
 
-	reqs, errReqs := s.repo.GetLeaveRequests(ctx, employeeIDFilter, departmentIDFilter)
+	reqs, totalItems, errReqs := s.repo.GetLeaveRequests(ctx, employeeIDFilter, departmentIDFilter, qp)
 	if errReqs != nil {
 		return nil, errors.NewAppError(errors.ErrInternalServer, "Lỗi truy vấn đơn nghỉ phép", errReqs)
 	}
@@ -126,7 +123,7 @@ func (s *TimekeepingServiceImpl) GetLeaveRequests(ctx context.Context, userID uu
 		userMap[u.ID] = u.Username
 	}
 
-	var responses []dto.LeaveRequestResponse
+	var items []dto.LeaveRequestResponse
 	for _, r := range reqs {
 		emp, ok := profileMap[r.EmployeeID]
 		if !ok {
@@ -140,7 +137,7 @@ func (s *TimekeepingServiceImpl) GetLeaveRequests(ctx context.Context, userID uu
 				approvedNameStr = &name
 			}
 		}
-		responses = append(responses, dto.LeaveRequestResponse{
+		items = append(items, dto.LeaveRequestResponse{
 			ID:            r.ID.String(),
 			EmployeeID:    r.EmployeeID.String(),
 			EmployeeCode:  emp.Code,
@@ -156,7 +153,10 @@ func (s *TimekeepingServiceImpl) GetLeaveRequests(ctx context.Context, userID uu
 		})
 	}
 
-	return responses, nil
+	return &dto.PaginatedLeaveRequestsResponse{
+		Items:      items,
+		TotalItems: totalItems,
+	}, nil
 }
 
 // UpdateLeaveRequestStatus manager hoặc admin duyệt / từ chối đơn nghỉ phép.
@@ -324,3 +324,40 @@ func (s *TimekeepingServiceImpl) AccrueLeaveForMonth(ctx context.Context, req *d
 		Message:        fmt.Sprintf("Đã cộng 1 ngày phép cho %d nhân viên trong tháng %d/%d", accrued, req.Month, req.Year),
 	}, nil
 }
+
+// StartLeaveAccrualScheduler khởi chạy loop tự động chạy ngầm để cộng phép đầu tháng.
+// Chạy ngay khi khởi động (chờ 5 giây) để bắt kịp tháng hiện tại và lặp lại sau mỗi 12 giờ.
+func (s *TimekeepingServiceImpl) StartLeaveAccrualScheduler(ctx context.Context) {
+	logger.Info("StartLeaveAccrualScheduler: Khởi động scheduler tự động cộng phép đầu tháng...")
+	
+	// Chờ 5 giây để DB/Server sẵn sàng
+	select {
+	case <-time.After(5 * time.Second):
+	case <-ctx.Done():
+		return
+	}
+
+	for {
+		now := time.Now()
+		req := &dto.AccrueLeaveRequest{
+			Month: int(now.Month()),
+			Year:  now.Year(),
+		}
+
+		resp, err := s.AccrueLeaveForMonth(ctx, req)
+		if err != nil {
+			logger.Error("StartLeaveAccrualScheduler: Lỗi tự động cộng phép", "error", err)
+		} else if resp != nil && resp.EmployeesCount > 0 {
+			logger.Info("StartLeaveAccrualScheduler: Tự động cộng phép thành công", "detail", resp.Message)
+		}
+
+		// Lặp lại sau mỗi 12 giờ
+		select {
+		case <-time.After(12 * time.Hour):
+		case <-ctx.Done():
+			logger.Info("StartLeaveAccrualScheduler: Bị dừng.")
+			return
+		}
+	}
+}
+

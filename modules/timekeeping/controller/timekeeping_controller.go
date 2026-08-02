@@ -305,7 +305,7 @@ func (ctrl *TimekeepingController) CreateLeaveRequest(c echo.Context) error {
 	return ctrl.SuccessResponse(c, resp, "Tạo đơn xin nghỉ phép thành công")
 }
 
-// GetLeaveRequests lấy danh sách đơn nghỉ phép (lọc theo role).
+// GetLeaveRequests lấy danh sách đơn nghỉ phép (lọc theo role và có phân trang).
 func (ctrl *TimekeepingController) GetLeaveRequests(c echo.Context) error {
 	ctx := c.Request().Context()
 	claims, err := ctrl.getUserClaims(c)
@@ -313,7 +313,19 @@ func (ctrl *TimekeepingController) GetLeaveRequests(c echo.Context) error {
 		return ctrl.Unauthorized(errors.ErrUnauthorized, "Yêu cầu đăng nhập", nil)
 	}
 
-	resp, appErr := ctrl.Service.GetLeaveRequests(ctx, claims.UserID)
+	qp := params.NewQueryParams(c)
+
+	if deptID := c.QueryParam("department_id"); deptID != "" {
+		qp.Filters["department_id"] = deptID
+	}
+	if empID := c.QueryParam("employee_id"); empID != "" {
+		qp.Filters["employee_id"] = empID
+	}
+	if status := c.QueryParam("status"); status != "" {
+		qp.Filters["status"] = status
+	}
+
+	resp, appErr := ctrl.Service.GetLeaveRequests(ctx, claims.UserID, *qp)
 	if appErr != nil {
 		return ctrl.InternalServerError(appErr.Code, appErr.Message, appErr)
 	}

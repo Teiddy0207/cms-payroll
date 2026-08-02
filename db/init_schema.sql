@@ -454,6 +454,20 @@ CREATE TABLE IF NOT EXISTS meeting_attendees (
     UNIQUE(meeting_id, user_id)
 );
 
+-- 31b. Meeting Summaries (AI Summary results)
+CREATE TABLE IF NOT EXISTS meeting_summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    meeting_id UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+    summary TEXT,
+    key_decisions TEXT,
+    action_items TEXT,
+    efficiency_score VARCHAR(50),
+    sentiment VARCHAR(50),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT meeting_summaries_meeting_id_key UNIQUE (meeting_id)
+);
+
 -- 32. Leave Requests (Đơn xin nghỉ phép thường niên)
 CREATE TABLE IF NOT EXISTS leave_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

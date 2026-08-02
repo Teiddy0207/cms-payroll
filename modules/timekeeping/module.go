@@ -39,6 +39,9 @@ func Init(db database.Database, redisCache *cache.Cache, natsClient *messaging.N
 		logger.Warn("timekeeping: NATS client is nil, JetStream check-in consumer startup bypassed")
 	}
 
+	// Khởi chạy scheduler chạy ngầm tự động cộng phép đầu tháng
+	go svc.StartLeaveAccrualScheduler(context.Background())
+
 	return &TimekeepingModule{
 		Service: svc,
 		repo:    repo,

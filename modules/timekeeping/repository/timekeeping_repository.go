@@ -478,43 +478,93 @@ func (r *TimekeepingRepositoryImpl) UpdateLeaveRequest(ctx context.Context, req 
 	return err
 }
 
-func (r *TimekeepingRepositoryImpl) GetLeaveRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID) ([]entity.LeaveRequest, error) {
-	var list []entity.LeaveRequest
-	var err error
+func (r *TimekeepingRepositoryImpl) GetLeaveRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID, qp params.QueryParams) ([]entity.LeaveRequest, int, error) {
+	offset := (qp.PageNumber - 1) * qp.PageSize
+	if offset < 0 {
+		offset = 0
+	}
+	pageSize := qp.PageSize
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	baseQuery := `
+		FROM leave_requests lr
+		JOIN user_profiles u ON lr.employee_id = u.id
+	`
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
 
 	if employeeID != nil {
-		query := `
-			SELECT id, employee_id, start_date, end_date, days_requested, reason, approved_by, status, created_at, updated_at
-			FROM leave_requests
-			WHERE employee_id = $1
-			ORDER BY start_date DESC
-		`
-		err = r.DB.SQLx().SelectContext(ctx, &list, query, *employeeID)
-	} else if departmentID != nil {
-		query := `
-			SELECT lr.id, lr.employee_id, lr.start_date, lr.end_date, lr.days_requested, lr.reason, lr.approved_by, lr.status, lr.created_at, lr.updated_at
-			FROM leave_requests lr
-			JOIN user_profiles u ON lr.employee_id = u.id
-			WHERE u.department_id = $1
-			ORDER BY lr.start_date DESC
-		`
-		err = r.DB.SQLx().SelectContext(ctx, &list, query, *departmentID)
-	} else {
-		query := `
-			SELECT id, employee_id, start_date, end_date, days_requested, reason, approved_by, status, created_at, updated_at
-			FROM leave_requests
-			ORDER BY start_date DESC
-		`
-		err = r.DB.SQLx().SelectContext(ctx, &list, query)
+		conditions = append(conditions, fmt.Sprintf("lr.employee_id = $%d", argIndex))
+		args = append(args, *employeeID)
+		argIndex++
 	}
 
+	if departmentID != nil {
+		conditions = append(conditions, fmt.Sprintf("u.department_id = $%d", argIndex))
+		args = append(args, *departmentID)
+		argIndex++
+	}
+
+	if qp.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("(u.full_name ILIKE $%d OR u.code ILIKE $%d)", argIndex, argIndex))
+		args = append(args, "%"+qp.Search+"%")
+		argIndex++
+	}
+
+	if deptStr, ok := qp.Filters["department_id"]; ok && deptStr != "" {
+		if deptID, err := uuid.Parse(deptStr); err == nil {
+			conditions = append(conditions, fmt.Sprintf("u.department_id = $%d", argIndex))
+			args = append(args, deptID)
+			argIndex++
+		}
+	}
+
+	if empStr, ok := qp.Filters["employee_id"]; ok && empStr != "" {
+		if empID, err := uuid.Parse(empStr); err == nil {
+			conditions = append(conditions, fmt.Sprintf("lr.employee_id = $%d", argIndex))
+			args = append(args, empID)
+			argIndex++
+		}
+	}
+
+	if statusStr, ok := qp.Filters["status"]; ok && statusStr != "" && statusStr != "ALL" {
+		conditions = append(conditions, fmt.Sprintf("lr.status = $%d", argIndex))
+		args = append(args, statusStr)
+		argIndex++
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	countQuery := "SELECT COUNT(lr.id) " + baseQuery + whereClause
+	var totalItems int
+	err := r.DB.SQLx().GetContext(ctx, &totalItems, countQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	dataQuery := `
+		SELECT lr.id, lr.employee_id, lr.start_date, lr.end_date, lr.days_requested, lr.reason, lr.approved_by, lr.status, lr.created_at, lr.updated_at
+	` + baseQuery + whereClause + ` ORDER BY lr.start_date DESC, lr.created_at DESC`
+
+	dataQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, pageSize, offset)
+
+	var list []entity.LeaveRequest
+	err = r.DB.SQLx().SelectContext(ctx, &list, dataQuery, args...)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return []entity.LeaveRequest{}, nil
+			return []entity.LeaveRequest{}, 0, nil
 		}
-		return nil, err
+		return nil, 0, err
 	}
-	return list, nil
+
+	return list, totalItems, nil
 }
 
 // GetApprovedLeavesForPeriod lấy tất cả leave_requests đã APPROVED có ngày nghỉ giao với [start, end].

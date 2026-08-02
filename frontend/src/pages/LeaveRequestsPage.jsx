@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { timekeepingAPI } from '../api/client.js';
+import { timekeepingAPI, departmentsAPI } from '../api/client.js';
 import { Table } from '../components/Table.jsx';
 import { Modal } from '../components/Modal.jsx';
 import { Badge } from '../components/Badge.jsx';
+import { Pagination } from '../components/Pagination.jsx';
 import { useToast } from '../hooks/useToast.js';
 
 // ============================================================
@@ -25,6 +26,15 @@ export function LeaveRequestsPage() {
 	const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'balance'
 	const currentYear = new Date().getFullYear();
 
+	// Phân trang, tìm kiếm và lọc
+	const [searchQuery, setSearchQuery] = useState('');
+	const [selectedDepartment, setSelectedDepartment] = useState('ALL');
+	const [selectedStatus, setSelectedStatus] = useState('ALL');
+	const [departments, setDepartments] = useState([]);
+	const [page, setPage] = useState(1);
+	const [total, setTotal] = useState(0);
+	const PAGE_SIZE = 10;
+
 	const [formData, setFormData] = useState({
 		start_date: '',
 		end_date: '',
@@ -37,12 +47,34 @@ export function LeaveRequestsPage() {
 		year: currentYear
 	});
 
+	// Tải danh sách phòng ban
+	useEffect(() => {
+		const loadDepartments = async () => {
+			try {
+				const res = await departmentsAPI.list({ page_number: 1, page_size: 100 });
+				setDepartments(res.data?.data?.items || []);
+			} catch (err) {
+				console.error("loadDepartments error:", err);
+			}
+		};
+		loadDepartments();
+	}, []);
+
 	// ----- Load data -----
 	const loadRequests = async () => {
 		setLoading(true);
 		try {
-			const res = await timekeepingAPI.getLeaveRequests();
-			setRequests(res.data?.data || []);
+			const params = {
+				page_number: page,
+				page_size: PAGE_SIZE,
+				search: searchQuery,
+				department_id: selectedDepartment === 'ALL' ? '' : selectedDepartment,
+				status: selectedStatus === 'ALL' ? '' : selectedStatus
+			};
+			const res = await timekeepingAPI.getLeaveRequests(params);
+			const d = res.data?.data;
+			setRequests(d?.items || []);
+			setTotal(d?.total_items || 0);
 		} catch (err) {
 			console.error('loadLeaveRequests error:', err);
 			toast.error('Lỗi', 'Không thể tải danh sách đơn nghỉ phép');
@@ -61,7 +93,14 @@ export function LeaveRequestsPage() {
 	};
 
 	useEffect(() => {
+		setPage(1);
+	}, [searchQuery, selectedDepartment, selectedStatus]);
+
+	useEffect(() => {
 		loadRequests();
+	}, [page, searchQuery, selectedDepartment, selectedStatus]);
+
+	useEffect(() => {
 		loadBalance();
 	}, []);
 
@@ -271,13 +310,13 @@ export function LeaveRequestsPage() {
 				<div>
 					<h1 className="page-title">Nghỉ phép thường niên</h1>
 					<p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
-						12 ngày phép/năm · Tích 1 ngày mỗi đầu tháng · Không dùng cộng dồn sang tháng sau
+						12 ngày phép/năm · Hệ thống tự động cộng 1 phép vào ngày 1 hàng tháng · Hết năm reset về 0
 					</p>
 				</div>
 				<div style={{ display: 'flex', gap: 10 }}>
 					<button className="btn btn-secondary" onClick={() => setAccrueModalOpen(true)}>
 						<i className="fa-solid fa-calendar-plus" style={{ marginRight: 6 }} />
-						Cộng phép tháng
+						Cộng phép thủ công
 					</button>
 					<button className="btn btn-primary" onClick={handleOpenCreate}>
 						<i className="fa-solid fa-plus" style={{ marginRight: 6 }} />
@@ -323,6 +362,57 @@ export function LeaveRequestsPage() {
 				</div>
 			)}
 
+			{/* Filters */}
+			<div className="card" style={{ padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', marginBottom: 20 }}>
+				<div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+					<div style={{ flex: 1, minWidth: 200 }}>
+						<label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Tìm kiếm nhân viên</label>
+						<input
+							type="text"
+							placeholder="Nhập tên hoặc mã nhân viên..."
+							className="form-input"
+							value={searchQuery}
+							onChange={e => setSearchQuery(e.target.value)}
+							style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+						/>
+					</div>
+
+					<div style={{ width: 180 }}>
+						<label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Trạng thái đơn</label>
+						<select
+							className="form-input"
+							value={selectedStatus}
+							onChange={e => setSelectedStatus(e.target.value)}
+							style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+						>
+							<option value="ALL">Tất cả trạng thái</option>
+							<option value="PENDING">Đang chờ duyệt</option>
+							<option value="APPROVED">Đã duyệt</option>
+							<option value="REJECTED">Từ chối</option>
+						</select>
+					</div>
+
+					{departments.length > 0 && (
+						<div style={{ width: 220 }}>
+							<label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Phòng ban</label>
+							<select
+								className="form-input"
+								value={selectedDepartment}
+								onChange={e => setSelectedDepartment(e.target.value)}
+								style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+							>
+								<option value="ALL">Tất cả phòng ban</option>
+								{departments.map(dept => (
+									<option key={dept.id} value={dept.id}>
+										{dept.name}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
+				</div>
+			</div>
+
 			{/* Table */}
 			<div className="card">
 				<div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)' }}>
@@ -337,6 +427,16 @@ export function LeaveRequestsPage() {
 					loading={loading}
 					emptyMessage="Chưa có đơn xin nghỉ phép nào"
 				/>
+				{total > PAGE_SIZE && (
+					<div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
+						<Pagination
+							currentPage={page}
+							totalItems={total}
+							pageSize={PAGE_SIZE}
+							onPageChange={setPage}
+						/>
+					</div>
+				)}
 			</div>
 
 			{/* Modal: Tạo đơn nghỉ phép */}

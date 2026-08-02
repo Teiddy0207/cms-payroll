@@ -187,9 +187,9 @@ export const timekeepingAPI = {
   // Nhân viên tạo đơn xin nghỉ phép
   createLeaveRequest: (data) =>
     client.post('/private/timekeeping/leaves', data),
-  // Lấy danh sách đơn (role-based: admin thấy tất, nhân viên thấy của mình)
-  getLeaveRequests: () =>
-    client.get('/private/timekeeping/leaves'),
+  // Lấy danh sách đơn (role-based, hỗ trợ phân trang, lọc phòng ban, tìm kiếm)
+  getLeaveRequests: (params) =>
+    client.get('/private/timekeeping/leaves', { params }),
   // Manager/Admin duyệt hoặc từ chối đơn
   updateLeaveRequestStatus: (id, status) =>
     client.put(`/private/timekeeping/leaves/${id}/status`, { status }),

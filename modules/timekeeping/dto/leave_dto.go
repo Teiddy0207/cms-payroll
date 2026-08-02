@@ -1,6 +1,11 @@
 package dto
 
-import "time"
+import (
+	coreDto "cal-salary/core/dto"
+	"time"
+)
+
+type PaginatedLeaveRequestsResponse = coreDto.Pagination[LeaveRequestResponse]
 
 // ==========================================
 // Leave Request DTOs

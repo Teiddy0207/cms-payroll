@@ -37,7 +37,7 @@ type TimekeepingRepository interface {
 	CreateLeaveRequest(ctx context.Context, req *entity.LeaveRequest) error
 	GetLeaveRequestByID(ctx context.Context, id uuid.UUID) (*entity.LeaveRequest, error)
 	UpdateLeaveRequest(ctx context.Context, req *entity.LeaveRequest) error
-	GetLeaveRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID) ([]entity.LeaveRequest, error)
+	GetLeaveRequests(ctx context.Context, employeeID *uuid.UUID, departmentID *uuid.UUID, qp params.QueryParams) ([]entity.LeaveRequest, int, error)
 	// GetApprovedLeavesForPeriod lấy tất cả leave đã APPROVED trong khoảng thời gian
 	// (dùng trong CalculateTimesheets để xác định ngày được phép nghỉ có lương).
 	GetApprovedLeavesForPeriod(ctx context.Context, start, end time.Time) ([]entity.LeaveRequest, error)

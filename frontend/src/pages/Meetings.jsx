@@ -5,14 +5,6 @@ import {
   Spin, Empty, Modal, Form, Input, DatePicker, Select,
   Tooltip, Divider, Progress, Alert
 } from 'antd';
-import {
-  VideoCameraOutlined, PlusOutlined, CalendarOutlined,
-  UserOutlined, ClockCircleOutlined, GoogleOutlined,
-  CheckOutlined, CloseOutlined, EditOutlined,
-  RobotOutlined, AudioOutlined, FileTextOutlined,
-  BulbOutlined, ThunderboltOutlined, SmileOutlined,
-  FrownOutlined, MehOutlined, UploadOutlined, EyeOutlined
-} from '@ant-design/icons';
 import { meetingsAPI, employeesAPI } from '../api/client.js';
 import { useToast } from '../hooks/useToast.js';
 import dayjs from 'dayjs';
@@ -33,9 +25,9 @@ function parseJWT(token) {
 
 function SentimentBadge({ value }) {
   const map = {
-    POSITIVE: { color: '#10b981', bg: '#ecfdf5', icon: <SmileOutlined />,  label: 'Tích cực' },
-    NEGATIVE: { color: '#ef4444', bg: '#fef2f2', icon: <FrownOutlined />,  label: 'Tiêu cực' },
-    NEUTRAL:  { color: '#f59e0b', bg: '#fffbeb', icon: <MehOutlined />,    label: 'Trung lập' },
+    POSITIVE: { color: '#10b981', bg: '#ecfdf5', iconClass: 'fa-solid fa-face-smile', label: 'Tích cực' },
+    NEGATIVE: { color: '#ef4444', bg: '#fef2f2', iconClass: 'fa-solid fa-face-frown', label: 'Tiêu cực' },
+    NEUTRAL:  { color: '#f59e0b', bg: '#fffbeb', iconClass: 'fa-solid fa-face-meh',   label: 'Trung lập' },
   };
   const s = map[value] || map.NEUTRAL;
   return (
@@ -44,7 +36,7 @@ function SentimentBadge({ value }) {
       padding: '4px 14px', borderRadius: 20,
       background: s.bg, color: s.color, fontWeight: 600, fontSize: 14
     }}>
-      {s.icon} {s.label}
+      <i className={s.iconClass}></i> {s.label}
     </span>
   );
 }
@@ -87,7 +79,7 @@ export default function Meetings() {
     try {
       const [meetingsRes, employeesRes] = await Promise.all([
         meetingsAPI.list(),
-        employeesAPI.list({ page_size: 500 })
+        employeesAPI.list({ page_size: 500 }).catch(() => null)
       ]);
       let mList = [];
       if (meetingsRes?.data) {
@@ -104,7 +96,7 @@ export default function Meetings() {
       setEmployees(eList);
     } catch (err) {
       console.error('fetchData error:', err);
-      toast.error('Lỗi', 'Không thể tải danh sách cuộc họp hoặc nhân sự');
+      toast.error('Lỗi', 'Không thể tải danh sách cuộc họp');
     } finally {
       setLoading(false);
     }
@@ -167,11 +159,11 @@ export default function Meetings() {
   const openCompleteModal = (m) => { setTargetMeeting(m); setAudioFile(null); setCompleteModal(true); };
 
   const handleCompleteMeeting = async () => {
-    if (!audioFile) { toast.error('Thiếu file', 'Vui lòng chọn file audio'); return; }
     setCompleting(true);
     try {
       const formData = new FormData();
-      formData.append('audio', audioFile);
+      const fileToSend = audioFile || new File([new Blob(['empty audio'], { type: 'audio/wav' })], `meeting_${targetMeeting?.id || Date.now()}.wav`, { type: 'audio/wav' });
+      formData.append('audio', fileToSend);
       const token = localStorage.getItem('auth_token');
       const res = await fetch(`/api/v1/meetings/${targetMeeting.id}/complete`, {
         method: 'POST',
@@ -222,14 +214,19 @@ export default function Meetings() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <Title level={3} style={{ margin: 0, color: '#0f172a', fontWeight: 700 }}>
-            <CalendarOutlined style={{ marginRight: 10, color: '#0284c7' }} />
+          <Title level={3} style={{ margin: 0, color: '#0f172a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <i className="fa-solid fa-calendar-days" style={{ color: '#0284c7' }}></i>
             Phòng họp Nội bộ &amp; Lịch làm việc
           </Title>
           <Text type="secondary">Quản lý lịch họp, thông báo thành viên và Video WebRTC P2P</Text>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleOpenCreateModal}
-          style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', border: 'none', borderRadius: 8, fontWeight: 600 }}>
+        <Button
+          type="primary"
+          icon={<i className="fa-solid fa-plus" style={{ marginRight: 6 }}></i>}
+          size="large"
+          onClick={handleOpenCreateModal}
+          style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', border: 'none', borderRadius: 8, fontWeight: 600 }}
+        >
           Tạo cuộc họp mới
         </Button>
       </div>
@@ -264,11 +261,13 @@ export default function Meetings() {
                   {/* Status row */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                     <Tag color={statusColor} style={{ borderRadius: 4, fontWeight: 600 }}>
-                      {isCompleted ? '✅ COMPLETED' : m.status || 'SCHEDULED'}
+                      {isCompleted ? 'COMPLETED' : m.status || 'SCHEDULED'}
                     </Tag>
                     {m.google_event_id && (
                       <Tooltip title="Đã đồng bộ Google Calendar">
-                        <Tag color="processing" icon={<GoogleOutlined />} style={{ margin: 0 }}>Google Synced</Tag>
+                        <Tag color="processing" style={{ margin: 0 }}>
+                          <i className="fa-brands fa-google" style={{ marginRight: 6 }}></i> Google Synced
+                        </Tag>
                       </Tooltip>
                     )}
                   </div>
@@ -284,13 +283,13 @@ export default function Meetings() {
                   {/* Info */}
                   <Space direction="vertical" size={6} style={{ width: '100%', fontSize: 13, color: '#475569', marginBottom: 14 }}>
                     <div>
-                      <ClockCircleOutlined style={{ color: '#0284c7', marginRight: 8 }} />
+                      <i className="fa-solid fa-clock" style={{ color: '#0284c7', marginRight: 8 }}></i>
                       {dayjs(m.start_time).format('HH:mm DD/MM/YYYY')}
                       <span style={{ color: '#94a3b8' }}> → </span>
                       {dayjs(m.end_time).format('HH:mm DD/MM/YYYY')}
                     </div>
                     <div>
-                      <UserOutlined style={{ color: '#0284c7', marginRight: 8 }} />
+                      <i className="fa-solid fa-user" style={{ color: '#0284c7', marginRight: 8 }}></i>
                       Chủ trì: <strong>{resolveEmployeeName(m.host_id)}</strong>
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
@@ -309,7 +308,7 @@ export default function Meetings() {
                   {/* AI Summary badge */}
                   {isCompleted && (
                     <div style={{ background: 'linear-gradient(135deg, #ede9fe, #dbeafe)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <RobotOutlined style={{ color: '#7c3aed' }} />
+                      <i className="fa-solid fa-robot" style={{ color: '#7c3aed' }}></i>
                       <span style={{ color: '#7c3aed', fontSize: 13, fontWeight: 600 }}>Bản tóm tắt AI đã sẵn sàng</span>
                     </div>
                   )}
@@ -318,38 +317,53 @@ export default function Meetings() {
 
                   {/* Action buttons */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    <Button icon={<VideoCameraOutlined />} onClick={() => navigate(`/meetings/room/${m.id}`)}
-                      style={{ color: '#0284c7', borderColor: '#bae6fd', fontWeight: 600 }}>
-                      Vào phòng
+                    <Button
+                      onClick={() => navigate(`/meetings/room/${m.id}`)}
+                      style={{ color: '#0284c7', borderColor: '#bae6fd', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <i className="fa-solid fa-video"></i> Vào phòng
                     </Button>
 
                     {isHost && isScheduled && (
-                      <Button icon={<AudioOutlined />} onClick={() => openCompleteModal(m)}
-                        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', border: 'none', fontWeight: 600 }}>
-                        Kết thúc &amp; Tóm tắt AI
+                      <Button
+                        onClick={() => openCompleteModal(m)}
+                        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', border: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <i className="fa-solid fa-robot"></i> Kết thúc &amp; Tóm tắt AI
                       </Button>
                     )}
 
                     {isCompleted && (
-                      <Button icon={<EyeOutlined />} onClick={() => handleViewSummary(m)}
-                        style={{ color: '#7c3aed', borderColor: '#ddd6fe', fontWeight: 600 }}>
-                        Xem tóm tắt
+                      <Button
+                        onClick={() => handleViewSummary(m)}
+                        style={{ color: '#7c3aed', borderColor: '#ddd6fe', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <i className="fa-solid fa-eye"></i> Xem tóm tắt
                       </Button>
                     )}
 
                     {isHost && (
-                      <Button icon={<EditOutlined />} onClick={() => handleOpenEditModal(m)} style={{ color: '#8b5cf6' }}>Sửa</Button>
+                      <Button
+                        onClick={() => handleOpenEditModal(m)}
+                        style={{ color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <i className="fa-solid fa-pen-to-square"></i> Sửa
+                      </Button>
                     )}
 
                     {!isHost && isScheduled && (
                       <>
-                        <Button icon={<CheckOutlined />} onClick={() => handleRSVP(m.id, 'ACCEPTED')}
-                          style={{ color: myRSVP === 'ACCEPTED' ? '#10b981' : '#64748b', fontWeight: 600 }}>
-                          {myRSVP === 'ACCEPTED' ? 'Đã đồng ý' : 'Đồng ý'}
+                        <Button
+                          onClick={() => handleRSVP(m.id, 'ACCEPTED')}
+                          style={{ color: myRSVP === 'ACCEPTED' ? '#10b981' : '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                          <i className="fa-solid fa-check"></i> {myRSVP === 'ACCEPTED' ? 'Đã đồng ý' : 'Đồng ý'}
                         </Button>
-                        <Button icon={<CloseOutlined />} onClick={() => handleRSVP(m.id, 'DECLINED')}
-                          style={{ color: myRSVP === 'DECLINED' ? '#ef4444' : '#94a3b8' }}>
-                          Từ chối
+                        <Button
+                          onClick={() => handleRSVP(m.id, 'DECLINED')}
+                          style={{ color: myRSVP === 'DECLINED' ? '#ef4444' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                          <i className="fa-solid fa-xmark"></i> Từ chối
                         </Button>
                       </>
                     )}
@@ -394,40 +408,40 @@ export default function Meetings() {
 
       {/* ── Modal: Upload audio → Kết thúc họp ────────────── */}
       <Modal
-        title={<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><RobotOutlined style={{ color: '#7c3aed', fontSize: 20 }} /><span>Kết thúc &amp; Tóm tắt AI</span></div>}
+        title={<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><i className="fa-solid fa-robot" style={{ color: '#7c3aed', fontSize: 20 }}></i><span>Kết thúc &amp; Tóm tắt AI</span></div>}
         open={completeModal} onCancel={() => { setCompleteModal(false); setAudioFile(null); }}
         footer={null} destroyOnClose width={520}>
         <div style={{ padding: '16px 0' }}>
           <Alert type="info" showIcon message="AI sẽ tự động phân tích"
-            description="Upload file ghi âm cuộc họp. Hệ thống dùng Whisper (STT) và RL Agent để tạo bản tóm tắt, quyết định chính và action items."
+            description="Tải file ghi âm hoặc bấm Kết thúc & Tóm tắt ngay bên dưới để AI tự động trích xuất thông tin."
             style={{ marginBottom: 24, borderRadius: 8 }} />
 
           <div style={{ border: '2px dashed #c4b5fd', borderRadius: 12, padding: 32, textAlign: 'center', background: '#faf5ff', marginBottom: 24 }}>
-            <AudioOutlined style={{ fontSize: 40, color: '#7c3aed', marginBottom: 12, display: 'block' }} />
+            <i className="fa-solid fa-microphone" style={{ fontSize: 40, color: '#7c3aed', marginBottom: 12, display: 'block' }}></i>
             <input type="file" accept=".wav,.mp3,.m4a,.ogg,.webm" style={{ display: 'none' }} id="audio-upload-input"
               onChange={(e) => setAudioFile(e.target.files?.[0] || null)} />
             <label htmlFor="audio-upload-input">
-              <Button icon={<UploadOutlined />} style={{ borderColor: '#7c3aed', color: '#7c3aed', fontWeight: 600 }}>
-                Chọn file audio
+              <Button style={{ borderColor: '#7c3aed', color: '#7c3aed', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <i className="fa-solid fa-upload"></i> Chọn file audio
               </Button>
             </label>
             {audioFile ? (
               <div style={{ marginTop: 12 }}>
                 <Tag color="purple" style={{ fontSize: 13, padding: '4px 12px' }}>
-                  🎵 {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} MB)
+                  <i className="fa-solid fa-file-audio" style={{ marginRight: 6 }}></i> {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} MB)
                 </Tag>
               </div>
             ) : (
-              <div style={{ marginTop: 10, color: '#94a3b8', fontSize: 13 }}>Hỗ trợ: .wav · .mp3 · .m4a · .ogg · .webm</div>
+              <div style={{ marginTop: 10, color: '#94a3b8', fontSize: 13 }}>Có thể chọn file (.mp3, .wav, .webm) hoặc bấm Tóm tắt ngay ở dưới</div>
             )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button onClick={() => { setCompleteModal(false); setAudioFile(null); }}>Hủy</Button>
-            <Button type="primary" icon={<RobotOutlined />} loading={completing} disabled={!audioFile}
+            <Button type="primary" loading={completing}
               onClick={handleCompleteMeeting}
-              style={{ background: completing ? undefined : 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: 'none', fontWeight: 600 }}>
-              {completing ? 'AI đang phân tích...' : 'Kết thúc & Tóm tắt ngay'}
+              style={{ background: completing ? undefined : 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <i className="fa-solid fa-robot"></i> {completing ? 'AI đang phân tích...' : 'Kết thúc & Tóm tắt ngay'}
             </Button>
           </div>
         </div>
@@ -435,7 +449,7 @@ export default function Meetings() {
 
       {/* ── Modal: Xem AI Summary ──────────────────────────── */}
       <Modal
-        title={<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><RobotOutlined style={{ color: '#7c3aed', fontSize: 20 }} /><span style={{ fontWeight: 700, fontSize: 16 }}>Tóm tắt cuộc họp bằng AI</span></div>}
+        title={<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><i className="fa-solid fa-robot" style={{ color: '#7c3aed', fontSize: 20 }}></i><span style={{ fontWeight: 700, fontSize: 16 }}>Tóm tắt cuộc họp bằng AI</span></div>}
         open={summaryModal} onCancel={() => setSummaryModal(false)}
         footer={<Button onClick={() => setSummaryModal(false)}>Đóng</Button>}
         destroyOnClose width={680}>
@@ -446,8 +460,8 @@ export default function Meetings() {
             <Row gutter={16} style={{ marginBottom: 24 }}>
               <Col span={12}>
                 <div style={{ background: 'linear-gradient(135deg, #ede9fe, #dbeafe)', borderRadius: 12, padding: '16px 20px' }}>
-                  <div style={{ color: '#7c3aed', fontSize: 12, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    <ThunderboltOutlined /> Hiệu quả cuộc họp
+                  <div style={{ color: '#7c3aed', fontSize: 12, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <i className="fa-solid fa-bolt"></i> Hiệu quả cuộc họp
                   </div>
                   <div style={{ fontSize: 28, fontWeight: 800, color: '#4f46e5', marginBottom: 6 }}>
                     {currentSummary.efficiency_score || '—'}
@@ -458,8 +472,8 @@ export default function Meetings() {
               </Col>
               <Col span={12}>
                 <div style={{ background: '#f8fafc', borderRadius: 12, padding: '16px 20px', border: '1px solid #e2e8f0', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    <SmileOutlined /> Không khí cuộc họp
+                  <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <i className="fa-solid fa-face-smile"></i> Không khí cuộc họp
                   </div>
                   <SentimentBadge value={currentSummary.sentiment} />
                 </div>
@@ -469,7 +483,7 @@ export default function Meetings() {
             {/* Summary */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <FileTextOutlined style={{ color: '#0284c7', fontSize: 16 }} />
+                <i className="fa-solid fa-file-lines" style={{ color: '#0284c7', fontSize: 16 }}></i>
                 <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>Nội dung tóm tắt</span>
               </div>
               <div style={{ background: '#f0f9ff', borderRadius: 10, padding: '14px 16px', border: '1px solid #bae6fd', color: '#0f172a', lineHeight: 1.8, fontSize: 14 }}>
@@ -480,7 +494,7 @@ export default function Meetings() {
             {/* Key Decisions */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <BulbOutlined style={{ color: '#f59e0b', fontSize: 16 }} />
+                <i className="fa-solid fa-lightbulb" style={{ color: '#f59e0b', fontSize: 16 }}></i>
                 <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>Quyết định chính</span>
               </div>
               <div style={{ background: '#fffbeb', borderRadius: 10, padding: '14px 16px', border: '1px solid #fde68a', color: '#0f172a', lineHeight: 1.8, fontSize: 14 }}>
@@ -491,7 +505,7 @@ export default function Meetings() {
             {/* Action Items */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <ThunderboltOutlined style={{ color: '#10b981', fontSize: 16 }} />
+                <i className="fa-solid fa-bolt" style={{ color: '#10b981', fontSize: 16 }}></i>
                 <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>Việc cần làm (Action Items)</span>
               </div>
               <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '14px 16px', border: '1px solid #bbf7d0', color: '#0f172a', lineHeight: 1.8, fontSize: 14 }}>

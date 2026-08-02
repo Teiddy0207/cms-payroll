@@ -41,8 +41,8 @@ type TimekeepingService interface {
 
 	// CreateLeaveRequest nhân viên tạo đơn xin nghỉ phép.
 	CreateLeaveRequest(ctx context.Context, userID uuid.UUID, req *dto.CreateLeaveRequest) (*dto.LeaveRequestResponse, *errors.AppError)
-	// GetLeaveRequests lấy danh sách đơn nghỉ phép (lọc theo role).
-	GetLeaveRequests(ctx context.Context, userID uuid.UUID) ([]dto.LeaveRequestResponse, *errors.AppError)
+	// GetLeaveRequests lấy danh sách đơn nghỉ phép (lọc theo role và có phân trang).
+	GetLeaveRequests(ctx context.Context, userID uuid.UUID, qp params.QueryParams) (*dto.PaginatedLeaveRequestsResponse, *errors.AppError)
 	// UpdateLeaveRequestStatus manager/admin duyệt hoặc từ chối đơn.
 	UpdateLeaveRequestStatus(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.UpdateRequestStatus) *errors.AppError
 
@@ -51,4 +51,6 @@ type TimekeepingService interface {
 	// AccrueLeaveForMonth cộng 1 phép cho tất cả nhân viên vào đầu tháng.
 	// Chỉ cộng nếu tháng đó chưa được accrual (idempotent).
 	AccrueLeaveForMonth(ctx context.Context, req *dto.AccrueLeaveRequest) (*dto.AccrueLeaveResponse, *errors.AppError)
+	// StartLeaveAccrualScheduler khởi chạy scheduler chạy ngầm tự động cộng phép đầu tháng.
+	StartLeaveAccrualScheduler(ctx context.Context)
 }

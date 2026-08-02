@@ -45,10 +45,24 @@ export default function VideoMeetingRoom() {
   const [mediaError, setMediaError] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // Auto-recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  // AI Summary states (shown after host ends meeting)
+  const [aiSummaryModal, setAiSummaryModal] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiProcessing, setAiProcessing] = useState(false);
+
   const localVideoRef = useRef(null);
   const screenVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+
+  // Recording refs
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recTimerRef = useRef(null);
   
   const peerConnectionsRef = useRef({});
   const broadcastChannelRef = useRef(null);
@@ -87,7 +101,7 @@ export default function VideoMeetingRoom() {
       try {
         const [meetingRes, empRes] = await Promise.all([
           meetingsAPI.get(id),
-          employeesAPI.list({ page_size: 500 })
+          employeesAPI.list({ page_size: 500 }).catch(() => null)
         ]);
         
         let mData = null;
@@ -315,6 +329,31 @@ export default function VideoMeetingRoom() {
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = stream;
           }
+
+          // Auto-start recording from the audio track of the local stream
+          try {
+            const audioStream = new MediaStream(stream.getAudioTracks());
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+              ? 'audio/webm;codecs=opus'
+              : 'audio/webm';
+            const recorder = new MediaRecorder(audioStream, { mimeType });
+            audioChunksRef.current = [];
+
+            recorder.ondataavailable = (e) => {
+              if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+
+            recorder.start(1000);
+            mediaRecorderRef.current = recorder;
+            setIsRecording(true);
+
+            // Tick recording timer every second
+            recTimerRef.current = setInterval(() => {
+              setRecordingTime(prev => prev + 1);
+            }, 1000);
+          } catch (recErr) {
+            console.warn('Auto-recording failed to start:', recErr);
+          }
         }
       } catch (err) {
         console.warn("Camera/Microphone access not available or denied:", err);
@@ -414,6 +453,12 @@ export default function VideoMeetingRoom() {
       }
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      // Stop recording on unmount
+      if (recTimerRef.current) clearInterval(recTimerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch {}
       }
     };
   }, [id, currentUserID]);
@@ -524,16 +569,80 @@ export default function VideoMeetingRoom() {
     }
   };
 
-  // Leave meeting confirm
+  // Format recording time mm:ss
+  const formatRecTime = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  // Leave meeting (non-host: just leave, no AI)
   const handleConfirmLeaveMeeting = async () => {
     try {
-      await sendSignal({
-        type: 'leave',
-        meeting_id: id,
-        from_user_id: currentUserID
-      });
+      await sendSignal({ type: 'leave', meeting_id: id, from_user_id: currentUserID });
     } catch {}
     navigate('/meetings');
+  };
+
+  // End meeting (host only): stop recording → send to AI → show summary
+  const handleEndMeeting = async () => {
+    setAiProcessing(true);
+
+    // Stop recording and collect chunks
+    if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
+    setIsRecording(false);
+
+    const finishAndAnalyze = async (chunks) => {
+      try {
+        await sendSignal({ type: 'leave', meeting_id: id, from_user_id: currentUserID });
+      } catch {}
+
+      if (chunks.length === 0) {
+        toast.error('Không có dữ liệu ghi âm', 'Cuộc họp quá ngắn hoặc microphone chưa hoạt động.');
+        setAiProcessing(false);
+        navigate('/meetings');
+        return;
+      }
+
+      try {
+        const mimeType = chunks[0]?.type || 'audio/webm';
+        const blob = new Blob(chunks, { type: mimeType });
+        const ext = mimeType.includes('webm') ? 'webm' : 'ogg';
+        const audioFile = new File([blob], `meeting_${id}_${Date.now()}.${ext}`, { type: mimeType });
+
+        const formData = new FormData();
+        formData.append('audio', audioFile);
+        const token = localStorage.getItem('auth_token');
+
+        const res = await fetch(`/api/v1/meetings/${id}/complete`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        const json = await res.json();
+        if (!res.ok || json.status !== 'success') throw new Error(json.error || 'Lỗi không xác định');
+
+        setAiSummary(json.data);
+        setAiSummaryModal(true);
+      } catch (err) {
+        console.error('AI analysis failed:', err);
+        toast.error('Lỗi AI', err.message || 'Không thể phân tích cuộc họp.');
+        navigate('/meetings');
+      } finally {
+        setAiProcessing(false);
+      }
+    };
+
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      // Wait for onstop to fire to collect final chunk
+      recorder.onstop = () => {
+        finishAndAnalyze([...audioChunksRef.current]);
+      };
+      recorder.stop();
+    } else {
+      finishAndAnalyze([...audioChunksRef.current]);
+    }
   };
 
   // Copy meeting link
@@ -576,7 +685,141 @@ export default function VideoMeetingRoom() {
     );
   }
 
+  const isHost = meeting && (meeting.host_id === currentUserID);
+
   return (
+    <>
+    {/* ── AI Processing Overlay ────────────────────────────── */}
+    {aiProcessing && (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(15,23,42,0.92)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px'
+      }}>
+        <div style={{ width: '64px', height: '64px', border: '4px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: '#f8fafc', marginBottom: '8px' }}>
+            <i className="fa-solid fa-robot" style={{ color: '#a78bfa', marginRight: '10px' }}></i>
+            AI đang phân tích cuộc họp...
+          </div>
+          <div style={{ fontSize: '14px', color: '#94a3b8' }}>Whisper đang chuyển đổi âm thanh · RL Agent đang tóm tắt</div>
+        </div>
+      </div>
+    )}
+
+    {/* ── AI Summary Modal ─────────────────────────────────── */}
+    {aiSummaryModal && aiSummary && (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9998,
+        background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+      }}>
+        <div style={{
+          background: '#0f172a', border: '1px solid #334155',
+          borderRadius: '20px', padding: '32px', width: '100%', maxWidth: '720px',
+          maxHeight: '85vh', overflowY: 'auto',
+          boxShadow: '0 40px 80px rgba(0,0,0,0.6)'
+        }}>
+          {/* Modal Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '12px',
+                background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px'
+              }}>
+                <i className="fa-solid fa-robot" style={{ color: '#fff' }}></i>
+              </div>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#f8fafc' }}>Tóm tắt cuộc họp bằng AI</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>{meeting.title}</div>
+              </div>
+            </div>
+            <button
+              onClick={() => { setAiSummaryModal(false); navigate('/meetings'); }}
+              style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer', fontSize: '16px' }}
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          {/* Scores */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+            {aiSummary.efficiency_score != null && (
+              <div style={{ background: '#1e293b', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #334155' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Hiệu suất họp</div>
+                <div style={{ fontSize: '28px', fontWeight: '800', color: '#10b981' }}>{aiSummary.efficiency_score}<span style={{ fontSize: '14px', color: '#64748b' }}>/100</span></div>
+              </div>
+            )}
+            {aiSummary.sentiment && (
+              <div style={{ background: '#1e293b', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #334155' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Không khí</div>
+                <div style={{ fontSize: '22px', fontWeight: '700', color: '#38bdf8', textTransform: 'capitalize' }}>
+                  {aiSummary.sentiment === 'positive' ? '😊 Tích cực' : aiSummary.sentiment === 'negative' ? '😟 Tiêu cực' : '😐 Trung tính'}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Summary */}
+          {aiSummary.summary && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-align-left"></i> NỘI DUNG TÓM TẮT
+              </div>
+              <div style={{ background: '#1e293b', borderRadius: '10px', padding: '16px', fontSize: '14px', color: '#cbd5e1', lineHeight: '1.8', border: '1px solid #334155' }}>
+                {aiSummary.summary}
+              </div>
+            </div>
+          )}
+
+          {/* Key Decisions */}
+          {Array.isArray(aiSummary.key_decisions) && aiSummary.key_decisions.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#f59e0b', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-gavel"></i> QUYẾT ĐỊNH CHÍNH
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {aiSummary.key_decisions.map((d, i) => (
+                  <div key={i} style={{ background: '#1e293b', borderLeft: '3px solid #f59e0b', borderRadius: '0 8px 8px 0', padding: '10px 14px', fontSize: '13px', color: '#e2e8f0' }}>
+                    <i className="fa-solid fa-check" style={{ color: '#f59e0b', marginRight: '8px' }}></i>{d}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Items */}
+          {Array.isArray(aiSummary.action_items) && aiSummary.action_items.length > 0 && (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#10b981', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-list-check"></i> ACTION ITEMS
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {aiSummary.action_items.map((item, i) => (
+                  <div key={i} style={{ background: '#1e293b', borderLeft: '3px solid #10b981', borderRadius: '0 8px 8px 0', padding: '10px 14px', fontSize: '13px', color: '#e2e8f0' }}>
+                    <i className="fa-solid fa-arrow-right" style={{ color: '#10b981', marginRight: '8px' }}></i>{item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => { setAiSummaryModal(false); navigate('/meetings'); }}
+            style={{
+              width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
+              background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              color: '#fff', fontWeight: '700', fontSize: '14px', cursor: 'pointer'
+            }}
+          >
+            <i className="fa-solid fa-check" style={{ marginRight: '8px' }}></i>Hoàn tất & Quay về danh sách
+          </button>
+        </div>
+      </div>
+    )}
+
     <div style={{ background: '#0f172a', minHeight: 'calc(100vh - 80px)', color: '#fff', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', position: 'relative' }}>
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1e293b', paddingBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
@@ -585,17 +828,28 @@ export default function VideoMeetingRoom() {
             <i className="fa-solid fa-video" style={{ color: '#38bdf8' }}></i>
             Phòng họp Nội bộ: {meeting.title || 'Họp Lãnh Đạo & Điều Hành'}
           </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', fontSize: '12px', flexWrap: 'wrap' }}>
             <span style={{ color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '3px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
               <i className="fa-solid fa-circle" style={{ fontSize: '8px', color: '#10b981' }}></i> WebRTC Live Connected
             </span>
             <span style={{ color: '#94a3b8' }}>
               <i className="fa-solid fa-users" style={{ marginRight: '6px' }}></i> {participants.length} Thành viên
             </span>
+            {isRecording && (
+              <span style={{
+                color: '#ef4444', background: 'rgba(239,68,68,0.15)',
+                padding: '3px 10px', borderRadius: '12px',
+                display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '600',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }}>
+                <i className="fa-solid fa-circle" style={{ fontSize: '8px' }}></i>
+                Đang ghi âm {formatRecTime(recordingTime)}
+              </span>
+            )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {isGoogleMeetUrl && (
             <a
               href={meeting.room_url}
@@ -611,6 +865,20 @@ export default function VideoMeetingRoom() {
             style={{ background: '#1e293b', color: '#f8fafc', border: '1px solid #334155', padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <i className="fa-solid fa-link"></i> {copiedLink ? 'Đã sao chép!' : 'Sao chép Link'}
+          </button>
+          <button
+            onClick={handleEndMeeting}
+            disabled={aiProcessing}
+            style={{
+              background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+              color: '#fff', border: '1px solid #a78bfa', padding: '9px 18px', borderRadius: '8px',
+              fontWeight: '600', fontSize: '13px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              boxShadow: '0 4px 14px rgba(139, 92, 246, 0.5)',
+              opacity: aiProcessing ? 0.7 : 1
+            }}
+          >
+            <i className="fa-solid fa-robot"></i> Kết thúc &amp; AI Tóm tắt
           </button>
           <button
             onClick={handleConfirmLeaveMeeting}
@@ -783,6 +1051,28 @@ export default function VideoMeetingRoom() {
         </button>
 
         <button
+          onClick={handleEndMeeting}
+          disabled={aiProcessing}
+          style={{
+            background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+            color: '#fff',
+            border: '1px solid #a78bfa',
+            padding: '12px 28px',
+            borderRadius: '10px',
+            fontWeight: '700',
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 18px rgba(139, 92, 246, 0.5)',
+            opacity: aiProcessing ? 0.7 : 1
+          }}
+        >
+          <i className="fa-solid fa-robot" style={{ fontSize: '16px' }}></i>
+          Kết thúc &amp; AI Tóm tắt
+        </button>
+        <button
           onClick={handleConfirmLeaveMeeting}
           style={{
             background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -804,5 +1094,6 @@ export default function VideoMeetingRoom() {
         </button>
       </div>
     </div>
+    </>
   );
 }
